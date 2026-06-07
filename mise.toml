@@ -1,5 +1,10 @@
 [env]
 DATABASE_URL = "sveltekit_fyi.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)"
+RUN_MIGRATIONS = "false"
+LOG_LEVEL = "DEBUG"
+
+[tasks.clean]
+run = "rm -rf ./bin"
 
 [tasks.dev]
 env = { APP_ENV = "development", DATABASE_URL = "app.db?foreign_keys(1)" }
@@ -17,3 +22,7 @@ run = "go tool goose -dir ./migrations sqlite3 $DATABASE_URL up"
 
 [tasks.lint]
 run = "golangci-lint run --timeout 5m"
+
+[tasks.build]
+depends = ["clean"]
+run = "go build -o ./bin/main main.go"

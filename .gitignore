@@ -6,3 +6,4 @@
 *.log
 og/*
 .DS_Store
+bin/

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/maybemaby/sveltekit-fyi/internal"
+	"github.com/maybemaby/sveltekit-fyi/migrations"
 )
 
 func createLogger() *slog.Logger {
@@ -34,6 +36,16 @@ func createLogger() *slog.Logger {
 	return logger
 }
 
+func runMigrations(ctx context.Context, db *sql.DB) error {
+	runEmbedded := os.Getenv("RUN_MIGRATIONS")
+
+	if runEmbedded == "true" {
+		return migrations.RunMigrations(ctx, db)
+	}
+
+	return nil
+}
+
 func main() {
 	logger := createLogger()
 
@@ -44,6 +56,20 @@ func main() {
 	db, err := internal.ConnectDB(ctx)
 
 	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			logger.Error("failed to close database connection", "error", err)
+		}
+	}()
+
+	err = runMigrations(ctx, db)
+
+	if err != nil {
+		logger.Error("failed to run migrations", "error", err)
 		panic(err)
 	}
 
