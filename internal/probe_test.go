@@ -65,10 +65,6 @@ func TestOgImage(t *testing.T) {
 
 	ogImage := probeOgImage(doc)
 
-	if err != nil {
-		t.Fatalf("failed to probe og image: %v\n", err)
-	}
-
 	expected := "https://example.com/image.jpg"
 
 	if ogImage != expected {
@@ -92,10 +88,6 @@ func TestOgImageNotFound(t *testing.T) {
 	}
 
 	ogImage := probeOgImage(doc)
-
-	if err != nil {
-		t.Fatalf("failed to probe og image: %v\n", err)
-	}
 
 	if ogImage != "" {
 		t.Fatalf("expected og image to be empty string when not found, but got %s\n", ogImage)
@@ -121,10 +113,6 @@ func TestOgImageFirst(t *testing.T) {
 	}
 
 	ogImage := probeOgImage(doc)
-
-	if err != nil {
-		t.Fatalf("failed to probe og image: %v\n", err)
-	}
 
 	expected := "https://example.com/image.jpg"
 

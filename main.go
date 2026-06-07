@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,7 +11,16 @@ import (
 	"github.com/maybemaby/sveltekit-fyi/internal"
 )
 
+func createLogger() *slog.Logger {
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	return logger
+}
+
 func main() {
+	logger := createLogger()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
@@ -26,10 +35,12 @@ func main() {
 	store := internal.NewAppStore(db)
 
 	wg.Go(func() {
-		jetstreamErr := internal.ProcessEvents(ctx, store)
+		processor := internal.NewJetStreamProcessor(store)
+		processor.SetLogger(logger)
+		jetstreamErr := processor.ProcessEvents(ctx, store)
 
 		if jetstreamErr != nil {
-			fmt.Printf("error processing jetstream events: %v\n", jetstreamErr)
+			logger.Error("error processing jetstream events", "error", jetstreamErr)
 		}
 
 		// We want the process to exit if the jetstream connection is lost, so we call stop() here to trigger a shutdown of the app
@@ -45,7 +56,7 @@ func main() {
 			err := server.Start()
 
 			if err != nil {
-				fmt.Printf("error starting http server: %v\n", err)
+				logger.Error("error starting http server", "error", err)
 			}
 
 			close(finished)
@@ -53,10 +64,10 @@ func main() {
 
 		select {
 		case <-finished:
-			fmt.Println("http server stopped")
+			logger.Info("http server stopped")
 			stop()
 		case <-ctx.Done():
-			fmt.Println("shutting down http server")
+			logger.Info("shutting down http server")
 		}
 	})
 

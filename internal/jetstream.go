@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -64,6 +65,26 @@ type JetstreamEvent struct {
 	Commit       JetstreamCommit `json:"commit"`
 }
 
+type JetStreamProcessor struct {
+	store          *AppStore
+	hostRateLimits map[string]time.Time
+	hostHitsSet    map[string]struct{}
+	logger         *slog.Logger
+}
+
+func NewJetStreamProcessor(store *AppStore) *JetStreamProcessor {
+	return &JetStreamProcessor{
+		store:          store,
+		hostRateLimits: make(map[string]time.Time),
+		hostHitsSet:    make(map[string]struct{}),
+		logger:         slog.New(slog.DiscardHandler),
+	}
+}
+
+func (p *JetStreamProcessor) SetLogger(logger *slog.Logger) {
+	p.logger = logger.WithGroup("jetstream")
+}
+
 func extract_urls(event *JetstreamEvent) map[string]struct{} {
 	urls := map[string]struct{}{}
 	urlRegex := regexp.MustCompile("(?i)\\bhttps?://[^\\s<>\"'`)]+")
@@ -103,18 +124,56 @@ func minDuration(a, b time.Duration) time.Duration {
 	return b
 }
 
-func ProcessEvents(ctx context.Context, store *AppStore) error {
+func createHostRequest(host string) (*http.Request, error) {
+	req, err := http.NewRequest(http.MethodGet, host, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for url %s: %w", host, err)
+	}
+
+	req.Header.Set("accept-language", "en")
+	req.Header.Set("accept", "text/html,application/xhtml+xml")
+	req.Header.Set("user-agent", "Mozilla/5.0 (compatible; SvelteKit-FYI/1.0; +https://brandma.dev)")
+
+	return req, nil
+}
+
+func trySaveImage(url string, hostname string) error {
+	img, err := getImage(url)
+
+	if err != nil {
+		return err
+	}
+
+	extension := getImageExtension(url)
+
+	if extension == "" {
+		return fmt.Errorf("could not determine image extension for url %s", url)
+	}
+
+	savePath := fmt.Sprintf("og/%s%s", hostname, extension)
+	f, err := os.Create(savePath)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(img)
+
+	if err != nil {
+		return err
+	}
+
+	return f.Close()
+}
+
+func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
 	backoff := 5 * time.Second
 	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	rateLimitHosts := map[string]time.Time{}
-	hostsHit := map[string]struct{}{}
 
 	c, _, err := websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
 
 	if err != nil {
-		fmt.Printf("failed to connect to websocket: %v\n", err)
-
 		return err
 	}
 
@@ -140,11 +199,10 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 			if err != nil {
 
 				if errors.Is(err, context.Canceled) {
-					fmt.Printf("context canceled, closing websocket connection\n")
 					return err
 				}
 
-				fmt.Printf("failed to read websocket message: %v\n", err)
+				p.logger.Error("failed to read websocket message", "error", err.Error())
 
 				var closeErr websocket.CloseError
 
@@ -157,11 +215,11 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 					c, _, err = websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
 
 					if err != nil {
-						fmt.Printf("failed to reconnect to websocket: %v\n", err)
+						p.logger.Error("failed to reconnect to websocket", "error", err)
 						continue
 					}
 
-					fmt.Println("Reconnected to websocket")
+					p.logger.Info("successfully reconnected to websocket")
 					backoff = 5 * time.Second
 					continue
 				}
@@ -177,7 +235,7 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 				u, err := url.Parse(postUrl)
 
 				if err != nil {
-					fmt.Printf("failed to parse url %s: %v\n", postUrl, err)
+					p.logger.Error("failed to parse url", "url", postUrl, "error", err)
 					continue
 				}
 
@@ -187,38 +245,33 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 
 				host := u.Scheme + "://" + u.Hostname()
 
-				fmt.Printf("Found URL: %s for event event: bsky.app %s\n\n", host, event.Commit.RKey)
-
-				req, err := http.NewRequest(http.MethodGet, host, nil)
-
-				if err != nil {
-					fmt.Printf("failed to create request for url %s: %v\n", host, err)
-					continue
-				}
-
 				err = store.AddDomainSeen(ctx, host)
 
 				if err != nil {
-					fmt.Printf("failed to add domain seen for domain %s: %v\n", host, err)
 					return err
 				}
 
-				if rateLimitHosts[req.URL.Host].After(time.Now()) {
-					fmt.Printf("skipping url %s due to recent rate limit\n", host)
-					continue
-				} else if _, hit := hostsHit[req.URL.Host]; hit {
-					fmt.Printf("skipping url %s because we've already hit this host\n", host)
+				p.logger.Info("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
+
+				req, err := createHostRequest(host)
+
+				if err != nil {
+					p.logger.Error("failed to create request for url", "url", host, "error", err)
 					continue
 				}
 
-				req.Header.Set("accept-language", "en")
-				req.Header.Set("accept", "text/html,application/xhtml+xml")
-				req.Header.Set("user-agent", "Mozilla/5.0 (compatible; SvelteKit-FYI/1.0; +https://brandma.dev)")
+				if p.hostRateLimits[req.URL.Host].After(time.Now()) {
+					p.logger.Warn("skiping url due to recent rate limit", "host", host)
+					continue
+				} else if _, hit := p.hostHitsSet[req.URL.Host]; hit {
+					p.logger.Warn("skipping url because we've already hit this host", "host", host)
+					continue
+				}
 
 				resp, err := httpClient.Do(req)
 
 				if err != nil {
-					fmt.Printf("failed to fetch url %s: %v\n", host, err)
+					p.logger.Error("failed to fetch url", "url", host, "error", err)
 					continue
 				}
 
@@ -226,13 +279,13 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 					fmt.Printf("non-200 status code for url %s: %d\n", host, resp.StatusCode)
 
 					if resp.StatusCode == http.StatusTooManyRequests {
-						rateLimitHosts[req.URL.Host] = time.Now().Add(1 * time.Hour)
+						p.hostRateLimits[req.URL.Host] = time.Now().Add(1 * time.Hour)
 					}
 
 					err = resp.Body.Close()
 
 					if err != nil {
-						fmt.Printf("failed to close response body for url %s: %v\n", host, err)
+						p.logger.Debug("failed to close response body", "host", host, "error", err)
 					}
 
 					continue
@@ -271,49 +324,24 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 				}
 
 				if isSvelteKit {
-					fmt.Printf("URL %s is likely a SvelteKit app\n", host)
+					p.logger.Info("URL appears to be a SvelteKit app", "host", host)
 
 					ogImage := probeOgImage(doc)
 
 					if ogImage != "" {
 						fmt.Printf("Found OG image for %s: %s\n", host, ogImage)
 
-						img, err := getImage(ogImage)
+						err = trySaveImage(ogImage, req.URL.Hostname())
 
 						if err != nil {
-							fmt.Printf("failed to fetch og image for url %s: %v\n", host, err)
-						}
-
-						extension := getImageExtension(ogImage)
-
-						if extension != "" {
-							savePath := fmt.Sprintf("og/%s%s", u.Hostname(), extension)
-							f, err := os.Create(savePath)
-
-							if err != nil {
-								fmt.Printf("failed to create file for og image for url %s: %v\n", host, err)
-								continue
-							}
-
-							_, err = f.Write(img)
-
-							if err != nil {
-								fmt.Printf("failed to write og image to file for url %s: %v\n", host, err)
-							}
-
-							err = f.Close()
-
-							if err != nil {
-								fmt.Printf("failed to close file for og image for url %s: %v\n", host, err)
-							}
+							fmt.Printf("failed to save og image for url %s: %v\n", host, err)
 						}
 					}
-
 				} else {
-					fmt.Printf("URL %s does not appear to be a SvelteKit app\n\n", host)
+					p.logger.Debug("host does not appear to be a sveltekit app", "host", host)
 				}
 
-				hostsHit[req.URL.Host] = struct{}{}
+				p.hostHitsSet[req.URL.Host] = struct{}{}
 			}
 		}
 	}

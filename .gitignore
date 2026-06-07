@@ -5,3 +5,4 @@
 !.env.example
 *.log
 og/*
+.DS_Store
