@@ -16,6 +16,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
+var rescanInterval = 30 * 24 * time.Hour
 var jetstreamUrl = "wss://jetstream2.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
 
 type FacetFeature struct {
@@ -170,6 +171,7 @@ func trySaveImage(url string, hostname string) error {
 func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
 	backoff := 5 * time.Second
 	httpClient := &http.Client{Timeout: 10 * time.Second}
+	retries := 0
 
 	c, _, err := websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
 
@@ -204,28 +206,34 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 				p.logger.Error("failed to read websocket message", "error", err.Error())
 
-				var closeErr websocket.CloseError
+				var closeErr *websocket.CloseError
 
 				if errors.As(err, &closeErr) {
-					fmt.Printf("websocket closed with status %d and reason: %s\n", closeErr.Code, closeErr.Reason)
-					time.Sleep(backoff)
-					backoff = minDuration(backoff*2, 1*time.Minute)
-					// Reconnect to the websocket after a delay
-					c.Close(websocket.StatusNormalClosure, "")
-					c, _, err = websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
+					p.logger.Warn("websocket connection closed, attempting to reconnect", "code", closeErr.Code, "reason", closeErr.Reason)
+				}
 
-					if err != nil {
-						p.logger.Error("failed to reconnect to websocket", "error", err)
-						continue
+				time.Sleep(backoff)
+				backoff = minDuration(backoff*2, 1*time.Minute)
+				retries++
+				// Reconnect to the websocket after a delay
+				c.Close(websocket.StatusNormalClosure, "")
+				c, _, err = websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
+
+				if err != nil {
+					p.logger.Error("failed to reconnect to websocket", "error", err)
+
+					if retries >= 5 {
+						p.logger.Error("max retries reached, giving up on reconnecting to websocket")
+						return err
 					}
 
-					p.logger.Info("successfully reconnected to websocket")
-					backoff = 5 * time.Second
 					continue
 				}
 
-				// Fallthrough and exit if it's some other kind of error besides a close error or context cancellation
-				return err
+				p.logger.Info("successfully reconnected to websocket")
+				backoff = 5 * time.Second
+				retries = 0
+				continue
 			}
 
 			urlsFound := extract_urls(event)
