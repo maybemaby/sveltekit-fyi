@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -69,7 +70,6 @@ type JetstreamEvent struct {
 type JetStreamProcessor struct {
 	store          *AppStore
 	hostRateLimits map[string]time.Time
-	hostHitsSet    map[string]struct{}
 	logger         *slog.Logger
 }
 
@@ -77,7 +77,6 @@ func NewJetStreamProcessor(store *AppStore) *JetStreamProcessor {
 	return &JetStreamProcessor{
 		store:          store,
 		hostRateLimits: make(map[string]time.Time),
-		hostHitsSet:    make(map[string]struct{}),
 		logger:         slog.New(slog.DiscardHandler),
 	}
 }
@@ -252,6 +251,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 				}
 
 				host := u.Scheme + "://" + u.Hostname()
+				p.logger.Info("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
 
 				err = store.AddDomainSeen(ctx, host)
 
@@ -259,7 +259,17 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					return err
 				}
 
-				p.logger.Info("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
+				existingScan, err := p.store.GetScanByDomain(ctx, host)
+
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					p.logger.Error("failed to check existing scans for host", "host", host, "error", err)
+					continue
+				}
+
+				if existingScan != nil && (time.Now().UnixMilli()-int64(existingScan.ScannedAt) < rescanInterval.Milliseconds()) {
+					p.logger.Debug("host has been scanned recently, skipping", "host", host)
+					continue
+				}
 
 				req, err := createHostRequest(host)
 
@@ -270,9 +280,6 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 				if p.hostRateLimits[req.URL.Host].After(time.Now()) {
 					p.logger.Warn("skiping url due to recent rate limit", "host", host)
-					continue
-				} else if _, hit := p.hostHitsSet[req.URL.Host]; hit {
-					p.logger.Warn("skipping url because we've already hit this host", "host", host)
 					continue
 				}
 
@@ -349,7 +356,23 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					p.logger.Debug("host does not appear to be a sveltekit app", "host", host)
 				}
 
-				p.hostHitsSet[req.URL.Host] = struct{}{}
+				err = p.store.SaveScan(ctx, &Scan{
+					Domain:         host,
+					ScannedAt:      int(time.Now().UnixMilli()),
+					IsSvelteKit:    isSvelteKit,
+					Confidence:     10, // placeholder
+					Signals:        "", // placeholder
+					FinalURL:       nil,
+					Title:          nil,
+					Error:          nil,
+					ScreenshotPath: nil,
+					OGImage:        nil,
+					RedirectedTo:   nil,
+				})
+
+				if err != nil {
+					p.logger.Error("failed to save scan result for host", "host", host, "error", err)
+				}
 			}
 		}
 	}

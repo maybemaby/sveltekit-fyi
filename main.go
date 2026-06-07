@@ -12,8 +12,23 @@ import (
 )
 
 func createLogger() *slog.Logger {
+	logLevel := slog.LevelDebug
+
+	envLevel := os.Getenv("LOG_LEVEL")
+
+	switch envLevel {
+	case "DEBUG":
+		logLevel = slog.LevelDebug
+	case "INFO":
+		logLevel = slog.LevelInfo
+	case "WARN":
+		logLevel = slog.LevelWarn
+	case "ERROR":
+		logLevel = slog.LevelError
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: logLevel,
 	}))
 
 	return logger
