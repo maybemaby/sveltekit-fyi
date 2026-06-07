@@ -22,3 +22,19 @@ func ConnectDB(ctx context.Context) (*sql.DB, error) {
 
 	return db, nil
 }
+
+func ConnectDBReadOnly(ctx context.Context) (*sql.DB, error) {
+	dbPath := "file:sveltekit_fyi.db?mode=ro&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)"
+
+	db, err := sql.Open("sqlite", dbPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -24,7 +25,15 @@ func main() {
 
 	store := internal.NewAppStore(db)
 
-	wg.Go(func() { internal.ProcessEvents(ctx, store) })
+	wg.Go(func() {
+		jetstreamErr := internal.ProcessEvents(ctx, store)
+
+		if jetstreamErr != nil {
+			fmt.Printf("error processing jetstream events: %v\n", jetstreamErr)
+		}
+
+		stop()
+	})
 
 	<-ctx.Done()
 

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -94,7 +95,15 @@ func extract_urls(event *JetstreamEvent) map[string]struct{} {
 	return urls
 }
 
-func ProcessEvents(ctx context.Context, store *AppStore) {
+func minDuration(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func ProcessEvents(ctx context.Context, store *AppStore) error {
+	backoff := 5 * time.Second
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	rateLimitHosts := map[string]time.Time{}
@@ -105,7 +114,7 @@ func ProcessEvents(ctx context.Context, store *AppStore) {
 	if err != nil {
 		fmt.Printf("failed to connect to websocket: %v\n", err)
 
-		return
+		return err
 	}
 
 	defer func() {
@@ -123,7 +132,7 @@ func ProcessEvents(ctx context.Context, store *AppStore) {
 			if err != nil {
 				fmt.Printf("failed to close websocket connection after context done: %v\n", err)
 			}
-			return
+			return err
 		default:
 			event := &JetstreamEvent{}
 			err := wsjson.Read(ctx, c, event)
@@ -131,24 +140,33 @@ func ProcessEvents(ctx context.Context, store *AppStore) {
 
 				if errors.Is(err, context.Canceled) {
 					fmt.Printf("context canceled, closing websocket connection\n")
-					return
+					return err
 				}
 
 				fmt.Printf("failed to read websocket message: %v\n", err)
-				time.Sleep(5 * time.Second)
 
-				// Reconnect to the websocket after a delay
-				c.Close(websocket.StatusNormalClosure, "")
-				c, _, err = websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
+				var closeErr websocket.CloseError
 
-				if err != nil {
-					fmt.Printf("failed to reconnect to websocket: %v\n", err)
-					return
+				if errors.As(err, &closeErr) {
+					fmt.Printf("websocket closed with status %d and reason: %s\n", closeErr.Code, closeErr.Reason)
+					time.Sleep(backoff)
+					backoff = minDuration(backoff*2, 1*time.Minute)
+					// Reconnect to the websocket after a delay
+					c.Close(websocket.StatusNormalClosure, "")
+					c, _, err = websocket.Dial(ctx, jetstreamUrl, &websocket.DialOptions{})
+
+					if err != nil {
+						fmt.Printf("failed to reconnect to websocket: %v\n", err)
+						continue
+					}
+
+					fmt.Println("Reconnected to websocket")
+					backoff = 5 * time.Second
+					continue
 				}
 
-				fmt.Println("Reconnected to websocket\n")
-
-				continue
+				// Fallthrough and exit if it's some other kind of error besides a close error or context cancellation
+				return err
 			}
 
 			urlsFound := extract_urls(event)
@@ -177,7 +195,7 @@ func ProcessEvents(ctx context.Context, store *AppStore) {
 
 				if err != nil {
 					fmt.Printf("failed to add domain seen for domain %s: %v\n", host, err)
-					return
+					return err
 				}
 
 				if rateLimitHosts[req.URL.Host].After(time.Now()) {
@@ -215,7 +233,20 @@ func ProcessEvents(ctx context.Context, store *AppStore) {
 					continue
 				}
 
-				isSvelteKit, err := probeHTML(resp.Body)
+				doc, err := goquery.NewDocumentFromReader(resp.Body)
+
+				if err != nil {
+					fmt.Printf("failed to parse html for url %s: %v\n", host, err)
+					err = resp.Body.Close()
+
+					if err != nil {
+						fmt.Printf("failed to close response body for url %s after parse failure: %v\n", host, err)
+					}
+
+					continue
+				}
+
+				isSvelteKit, err := probeHTML(doc)
 
 				if err != nil {
 					fmt.Printf("failed to probe html for url %s: %v\n", host, err)
@@ -236,13 +267,19 @@ func ProcessEvents(ctx context.Context, store *AppStore) {
 
 				if isSvelteKit {
 					fmt.Printf("URL %s is likely a SvelteKit app\n", host)
+
+					ogImage := probeOgImage(doc)
+
+					if ogImage != "" {
+						fmt.Printf("Found OG image for %s: %s\n", host, ogImage)
+					}
+
 				} else {
 					fmt.Printf("URL %s does not appear to be a SvelteKit app\n\n", host)
 				}
 
 				hostsHit[req.URL.Host] = struct{}{}
 			}
-
 		}
 	}
 }
