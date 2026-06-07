@@ -180,6 +180,10 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 					continue
 				}
 
+				if u.Scheme != "http" && u.Scheme != "https" {
+					continue
+				}
+
 				host := u.Scheme + "://" + u.Hostname()
 
 				fmt.Printf("Found URL: %s for event event: bsky.app %s\n\n", host, event.Commit.RKey)
