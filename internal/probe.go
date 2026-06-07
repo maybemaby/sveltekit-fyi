@@ -1,6 +1,13 @@
 package internal
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -41,4 +48,40 @@ func probeOgImage(doc *goquery.Document) string {
 	}
 
 	return ""
+}
+
+func getImage(url string) (image []byte, err error) {
+	resp, err := http.Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		closeErr := resp.Body.Close()
+
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("non-200 status code: %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func getImageExtension(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+
+	ext := strings.ToLower(path.Ext(parsedURL.Path))
+	if ext == "" || ext == "." {
+		return ""
+	}
+
+	return ext
 }

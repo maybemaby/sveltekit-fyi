@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"time"
 
@@ -276,6 +277,36 @@ func ProcessEvents(ctx context.Context, store *AppStore) error {
 
 					if ogImage != "" {
 						fmt.Printf("Found OG image for %s: %s\n", host, ogImage)
+
+						img, err := getImage(ogImage)
+
+						if err != nil {
+							fmt.Printf("failed to fetch og image for url %s: %v\n", host, err)
+						}
+
+						extension := getImageExtension(ogImage)
+
+						if extension != "" {
+							savePath := fmt.Sprintf("og/%s%s", u.Hostname(), extension)
+							f, err := os.Create(savePath)
+
+							if err != nil {
+								fmt.Printf("failed to create file for og image for url %s: %v\n", host, err)
+								continue
+							}
+
+							_, err = f.Write(img)
+
+							if err != nil {
+								fmt.Printf("failed to write og image to file for url %s: %v\n", host, err)
+							}
+
+							err = f.Close()
+
+							if err != nil {
+								fmt.Printf("failed to close file for og image for url %s: %v\n", host, err)
+							}
+						}
 					}
 
 				} else {

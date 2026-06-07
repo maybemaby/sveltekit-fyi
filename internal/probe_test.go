@@ -105,14 +105,14 @@ func TestOgImageNotFound(t *testing.T) {
 func TestOgImageFirst(t *testing.T) {
 
 	html := `
-		<html>
-			<head>
-				<meta name="og:image:secure_url" content="https://example.com/image.jpg">
-				<meta property="og:image" content="https://example.com/image2.jpg">
-			</head>
-			<body></body>
-		</html>
-	`
+			<html>
+				<head>
+					<meta name="og:image:secure_url" content="https://example.com/image.jpg">
+					<meta property="og:image" content="https://example.com/image2.jpg">
+				</head>
+				<body></body>
+			</html>
+		`
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 
@@ -130,5 +130,43 @@ func TestOgImageFirst(t *testing.T) {
 
 	if ogImage != expected {
 		t.Fatalf("expected og image to be %s, but got %s\n", expected, ogImage)
+	}
+}
+
+func TestGetImageExtension(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "png image",
+			url:  "https://podcasts.apple.com/assets/meta/apple-podcasts.png",
+			want: ".png",
+		},
+		{
+			name: "jpg image with query string",
+			url:  "https://example.com/image.JPG?foo=bar",
+			want: ".jpg",
+		},
+		{
+			name: "no extension",
+			url:  "https://example.com/assets/image",
+			want: "",
+		},
+		{
+			name: "invalid url",
+			url:  "://not a valid url",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getImageExtension(tt.url)
+			if got != tt.want {
+				t.Fatalf("expected extension %q, got %q", tt.want, got)
+			}
+		})
 	}
 }
