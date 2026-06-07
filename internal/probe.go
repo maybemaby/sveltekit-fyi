@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"io"
-
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -14,13 +12,8 @@ var querySelectors = []string{
 	"div#svelte-announcer",
 }
 
-func probeHTML(reader io.Reader) (bool, error) {
+func probeHTML(doc *goquery.Document) (bool, error) {
 	for _, selector := range querySelectors {
-		doc, err := goquery.NewDocumentFromReader(reader)
-
-		if err != nil {
-			return false, err
-		}
 
 		if doc.Find(selector).Length() > 0 {
 			return true, nil
@@ -28,4 +21,24 @@ func probeHTML(reader io.Reader) (bool, error) {
 	}
 
 	return false, nil
+}
+
+var ogImageSelectors = []string{
+	`meta[property="og:image:secure_url"]`,
+	`meta[name="og:image:secure_url"]`,
+	`meta[property="og:image"]`,
+	`meta[name="og:image"]`,
+	`meta[property="twitter:image"]`,
+	`meta[name="twitter:image"]`,
+}
+
+func probeOgImage(doc *goquery.Document) string {
+	for _, selector := range ogImageSelectors {
+
+		if content, exists := doc.Find(selector).Attr("content"); exists {
+			return content
+		}
+	}
+
+	return ""
 }
