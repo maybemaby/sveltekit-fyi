@@ -15,7 +15,7 @@
 		<div class="flex items-center gap-4">
 			<a class="text-xl mr-4" href={resolve('/')}>sveltekit.fyi</a>
 			<a href={resolve('/hits')}>
-				<div>sveltekit sites</div>
+				<div>sites</div>
 			</a>
 		</div>
 	</header>

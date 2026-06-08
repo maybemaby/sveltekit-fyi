@@ -28,6 +28,9 @@ run = "go tool goose -dir ./migrations create {{usage.task_name}} sql"
 [tasks."migrate:up"]
 run = "go tool goose -dir ./migrations sqlite3 $DATABASE_URL up"
 
+[tasks."migrate:down"]
+run = "go tool goose -dir ./migrations sqlite3 $DATABASE_URL down"
+
 [tasks.lint]
 run = "golangci-lint run --timeout 5m"
 

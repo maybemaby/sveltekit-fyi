@@ -2,18 +2,20 @@
 	let {
 		image,
 		title,
-		domain
+		domain,
+		timeAgo
 	}: {
 		image?: string;
 		title: string;
 		domain: string;
+		timeAgo: string;
 	} = $props();
 </script>
 
 <a
 	href={domain}
 	target="_blank"
-	class="flex flex-col border rounded-sm focus:border-primary  hover:border-primary transition-colors duration-100"
+	class="flex flex-col border rounded-sm focus:border-primary hover:border-primary transition-colors duration-100"
 >
 	<div class="aspect-1280/800 border-b">
 		{#if image}
@@ -27,5 +29,6 @@
 	<div class="p-2">
 		<h2 class="font-medium">{domain}</h2>
 		<p class="text-ellipsis line-clamp-1">{title}</p>
+		<p class="text-xs text-muted-foreground">{timeAgo}</p>
 	</div>
 </a>

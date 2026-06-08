@@ -15,7 +15,7 @@ func NewAppStore(db *sql.DB) *AppStore {
 
 const upsertDomainSeen = `
 INSERT INTO domains (domain, first_seen_at, last_seen_at, seen_count)
-VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)
+VALUES (?, strftime('%s', 'now'), strftime('%s', 'now'), 1)
 ON CONFLICT (domain) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at,
 seen_count = seen_count + 1
 `
@@ -104,8 +104,8 @@ func (s *AppStore) SaveScan(ctx context.Context, scan *Scan) error {
 
 type DomainListing struct {
 	Domain      string  `db:"domain" json:"domain"`
-	FirstSeenAt string  `db:"first_seen_at" json:"first_seen_at"`
-	LastSeenAt  string  `db:"last_seen_at" json:"last_seen_at"`
+	FirstSeenAt int  `db:"first_seen_at" json:"first_seen_at"`
+	LastSeenAt  int  `db:"last_seen_at" json:"last_seen_at"`
 	SeenCount   int     `db:"seen_count" json:"seen_count"`
 	Signals     string  `db:"signals" json:"signals"`
 	Title       *string `db:"title" json:"title"`

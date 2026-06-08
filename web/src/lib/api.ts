@@ -37,8 +37,8 @@ interface ScanStats {
 
 interface DomainListing {
 	domain: string;
-	first_seen_at: string;
-	last_seen_at: string;
+	first_seen_at: number;
+	last_seen_at: number;
 	seen_count: number;
 	signals: string;
 	title: string;
