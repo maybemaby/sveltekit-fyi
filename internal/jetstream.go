@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -270,7 +271,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 				}
 
 				host := u.Scheme + "://" + u.Hostname()
-				p.logger.Info("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
+				p.logger.Debug("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
 
 				err = store.AddDomainSeen(ctx, host)
 
@@ -309,11 +310,32 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					continue
 				}
 
-				if resp.StatusCode != http.StatusOK {
-					fmt.Printf("non-200 status code for url %s: %d\n", host, resp.StatusCode)
+				if resp.StatusCode >= 300 {
+					p.logger.Warn("non-2XX status code for url", "host", host, "status_code", resp.StatusCode)
 
 					if resp.StatusCode == http.StatusTooManyRequests {
+						p.logger.Warn("received 429 Too Many Requests for host, adding to rate limit map", "host", host)
 						p.hostRateLimits[req.URL.Host] = time.Now().Add(1 * time.Hour)
+					}
+
+					errorString := strconv.Itoa(resp.StatusCode)
+
+					err = p.store.SaveScan(ctx, &Scan{
+						Domain:         host,
+						ScannedAt:      int(time.Now().UnixMilli()),
+						IsSvelteKit:    false,
+						Confidence:     0,
+						Signals:        "",
+						FinalURL:       nil,
+						Title:          &host,
+						Error:          &errorString,
+						ScreenshotPath: nil,
+						OGImage:        nil,
+						RedirectedTo:   nil,
+					})
+
+					if err != nil {
+						p.logger.Error("failed to save scan result for host after non-200 response", "host", host, "error", err)
 					}
 
 					err = resp.Body.Close()
