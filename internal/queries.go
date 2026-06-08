@@ -104,8 +104,8 @@ func (s *AppStore) SaveScan(ctx context.Context, scan *Scan) error {
 
 type DomainListing struct {
 	Domain      string  `db:"domain" json:"domain"`
-	FirstSeenAt int  `db:"first_seen_at" json:"first_seen_at"`
-	LastSeenAt  int  `db:"last_seen_at" json:"last_seen_at"`
+	FirstSeenAt int     `db:"first_seen_at" json:"first_seen_at"`
+	LastSeenAt  int     `db:"last_seen_at" json:"last_seen_at"`
 	SeenCount   int     `db:"seen_count" json:"seen_count"`
 	Signals     string  `db:"signals" json:"signals"`
 	Title       *string `db:"title" json:"title"`
@@ -173,7 +173,7 @@ const getStatsQuery = `SELECT (SELECT COUNT(*) FROM scans WHERE is_sk = true) AS
 (SELECT COUNT(domain) FROM domains) AS total_observed
 `
 
-func (s *AppStore) GetStats(ctx context.Context) (ScanStats, error) {
+func (s *AppStore) getScanStats(ctx context.Context) (ScanStats, error) {
 	row := s.db.QueryRowContext(ctx, getStatsQuery)
 
 	var stats ScanStats
@@ -189,4 +189,69 @@ func (s *AppStore) GetStats(ctx context.Context) (ScanStats, error) {
 	}
 
 	return stats, nil
+}
+
+const getSignalCountsQuery = `SELECT signals, COUNT(*) AS count
+FROM scans
+WHERE is_sk = true
+GROUP BY signals
+ORDER BY count DESC
+`
+
+type SignalCount struct {
+	Signals string `db:"signals" json:"signals"`
+	Count   int    `db:"count" json:"count"`
+}
+
+func (s *AppStore) getSignalCounts(ctx context.Context) ([]SignalCount, error) {
+	rows, err := s.db.QueryContext(ctx, getSignalCountsQuery)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	counts := make([]SignalCount, 0)
+
+	for rows.Next() {
+		var count SignalCount
+
+		err := rows.Scan(
+			&count.Signals,
+			&count.Count,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		counts = append(counts, count)
+	}
+
+	return counts, nil
+}
+
+type CombinedStats struct {
+	Scans   ScanStats     `json:"scans"`
+	Signals []SignalCount `json:"signals"`
+}
+
+func (s *AppStore) GetStats(ctx context.Context) (CombinedStats, error) {
+	scanStats, err := s.getScanStats(ctx)
+
+	if err != nil {
+		return CombinedStats{}, err
+	}
+
+	signalCounts, err := s.getSignalCounts(ctx)
+
+	if err != nil {
+		return CombinedStats{}, err
+	}
+
+	return CombinedStats{
+		Scans:   scanStats,
+		Signals: signalCounts,
+	}, nil
 }

@@ -35,6 +35,16 @@ interface ScanStats {
 	totalObserved: number;
 }
 
+interface SignalCount {
+	signals: string;
+	count: number;
+}
+
+interface CombinedStats {
+	scans: ScanStats;
+	signals: SignalCount[];
+}
+
 interface DomainListing {
 	domain: string;
 	first_seen_at: number;
@@ -54,7 +64,7 @@ export class ApiClient {
 	}
 
 	async getScanStats() {
-		return safeFetch<ScanStats>(`${this.baseUrl}/stats`);
+		return safeFetch<CombinedStats>(`${this.baseUrl}/stats`);
 	}
 
 	async getDomainListings(page: number = 1) {

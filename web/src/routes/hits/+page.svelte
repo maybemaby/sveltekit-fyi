@@ -4,7 +4,6 @@
 	import Preview from '$lib/components/preview.svelte';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import { getDomains } from '../scans.remote';
-	import { now, parseZonedDateTime, parseDateTime } from '@internationalized/date';
 
 	const perPage = 30;
 

@@ -84,6 +84,8 @@ func (s *Server) mountRoutes() {
 			return
 		}
 
+		w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
+
 		err = json.NewEncoder(w).Encode(stats)
 
 		if err != nil {
