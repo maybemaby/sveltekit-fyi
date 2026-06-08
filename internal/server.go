@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type Server struct {
@@ -57,9 +56,9 @@ func (s *Server) mountRoutes() {
 			return
 		}
 
-		offset := (pageInt - 1) * 20
+		offset := (pageInt - 1) * 30
 
-		domains, err := s.store.GetTopDomains(r.Context(), 20, offset)
+		domains, err := s.store.GetTopDomains(r.Context(), 30, offset)
 
 		if err != nil {
 			s.logger.Error("failed to get top domains", "error", err)
@@ -76,44 +75,22 @@ func (s *Server) mountRoutes() {
 		}
 	})
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		rows, err := s.db.QueryContext(r.Context(), `SELECT * FROM domains ORDER BY seen_count DESC LIMIT 100`)
+	mux.HandleFunc("GET /stats", func(w http.ResponseWriter, r *http.Request) {
+		stats, err := s.store.GetStats(r.Context())
+
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		defer rows.Close()
-
-		// Process rows and write response
-
-		var response strings.Builder
-
-		for rows.Next() {
-			var domain string
-			var firstSeenAt string
-			var lastSeenAt string
-			var seenCount int
-
-			err := rows.Scan(&domain, &firstSeenAt, &lastSeenAt, &seenCount)
-			if err != nil {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-
-			_, err = response.WriteString(domain + ":" + strconv.Itoa(seenCount) + "\n")
-
-			if err != nil {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		if err := rows.Err(); err != nil {
+			s.logger.Error("failed to get stats", "error", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		w.Write([]byte(response.String()))
+		err = json.NewEncoder(w).Encode(stats)
+
+		if err != nil {
+			s.logger.Error("failed to encode response", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 	})
 
 	s.srv.Handler = mux

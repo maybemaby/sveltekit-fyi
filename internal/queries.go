@@ -161,3 +161,32 @@ func (s *AppStore) GetTopDomains(ctx context.Context, limit, offset int) ([]Doma
 
 	return listings, nil
 }
+
+type ScanStats struct {
+	ConfirmedSites int `db:"confirmed_sites" json:"confirmedSites"`
+	TotalScans     int `db:"total_scans" json:"totalScans"`
+	TotalObserved  int `db:"total_observed" json:"totalObserved"`
+}
+
+const getStatsQuery = `SELECT (SELECT COUNT(*) FROM scans WHERE is_sk = true) AS confirmed_sites,
+(SELECT COUNT(domain) FROM scans) AS total_scans,
+(SELECT COUNT(domain) FROM domains) AS total_observed
+`
+
+func (s *AppStore) GetStats(ctx context.Context) (ScanStats, error) {
+	row := s.db.QueryRowContext(ctx, getStatsQuery)
+
+	var stats ScanStats
+
+	err := row.Scan(
+		&stats.ConfirmedSites,
+		&stats.TotalScans,
+		&stats.TotalObserved,
+	)
+
+	if err != nil {
+		return ScanStats{}, err
+	}
+
+	return stats, nil
+}

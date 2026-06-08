@@ -299,7 +299,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 				}
 
 				if p.hostRateLimits[req.URL.Host].After(time.Now()) {
-					p.logger.Warn("skiping url due to recent rate limit", "host", host)
+					p.logger.Warn("skipping url due to recent rate limit", "host", host)
 					continue
 				}
 
