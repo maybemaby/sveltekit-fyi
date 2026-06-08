@@ -2,7 +2,16 @@
 	import StatBox from '$lib/components/stat-box.svelte';
 	import { getStats } from './scans.remote';
 
-	const stats = await getStats();
+	let stats = await getStats();
+
+	let signals = $derived.by(() =>
+		stats.signals.map((s) => ({
+			...s,
+			count: Intl.NumberFormat('en-US', {
+				notation: 'standard'
+			}).format(s.count)
+		}))
+	);
 </script>
 
 <div>
@@ -15,7 +24,7 @@
 
 	<h2 class="text-xl font-semibold mb-2">Signals used to detect Sveltekit</h2>
 	<div class="grid grid-cols-[300px_1fr] gap-1">
-		{#each stats.signals as signal (signal.signals)}
+		{#each signals as signal (signal.signals)}
 			<div class="font-mono">{signal.signals}</div>
 			<div class="font-mono">{signal.count}</div>
 		{/each}
