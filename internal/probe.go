@@ -19,15 +19,41 @@ var querySelectors = []string{
 	"div#svelte-announcer",
 }
 
-func probeHTML(doc *goquery.Document) (bool, error) {
+func probeHTML(doc *goquery.Document) (string, error) {
 	for _, selector := range querySelectors {
 
 		if doc.Find(selector).Length() > 0 {
-			return true, nil
+			return selector, nil
 		}
 	}
 
-	return false, nil
+	return "", nil
+}
+
+var titleSelectors = []string{
+	`meta[property="og:title"]`,
+	`meta[name="og:title"]`,
+	`meta[property="twitter:title"]`,
+	`meta[name="twitter:title"]`,
+	"title",
+}
+
+func probeTitle(doc *goquery.Document) string {
+	for _, selector := range titleSelectors {
+
+		if content, exists := doc.Find(selector).Attr("content"); exists {
+			return content
+		}
+
+		if selector == "title" {
+			titleText := doc.Find("title").Text()
+			if titleText != "" {
+				return titleText
+			}
+		}
+	}
+
+	return ""
 }
 
 var ogImageSelectors = []string{

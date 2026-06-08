@@ -237,6 +237,25 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 			urlsFound := extract_urls(event)
 
+			// var g errgroup.Group
+
+			// for postUrl := range urlsFound {
+			// 	g.Go(func() error {
+			// 		u, err := url.Parse(postUrl)
+
+			// 		if err != nil {
+			// 			p.logger.Error("failed to parse url", "url", postUrl, "error", err)
+			// 			return nil
+			// 		}
+
+			// 		if u.Scheme != "http" && u.Scheme != "https" {
+			// 			return nil
+			// 		}
+			// 	})
+			// }
+
+			// err = g.Wait()
+
 			for postUrl := range urlsFound {
 
 				u, err := url.Parse(postUrl)
@@ -319,10 +338,10 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					continue
 				}
 
-				isSvelteKit, err := probeHTML(doc)
+				selector, err := probeHTML(doc)
 
 				if err != nil {
-					fmt.Printf("failed to probe html for url %s: %v\n", host, err)
+					p.logger.Error("failed to probe html for url", "host", host, "error", err)
 					err = resp.Body.Close()
 
 					if err != nil {
@@ -338,18 +357,27 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					fmt.Printf("failed to close response body for url %s after probe: %v\n", host, err)
 				}
 
+				isSvelteKit := selector != ""
+				var title string
+
 				if isSvelteKit {
 					p.logger.Info("URL appears to be a SvelteKit app", "host", host)
+
+					title = probeTitle(doc)
+
+					if title == "" {
+						title = host
+					}
 
 					ogImage := probeOgImage(doc)
 
 					if ogImage != "" {
-						fmt.Printf("Found OG image for %s: %s\n", host, ogImage)
+						p.logger.Debug("found og image for url", "host", host, "og_image", ogImage)
 
 						err = trySaveImage(ogImage, req.URL.Hostname())
 
 						if err != nil {
-							fmt.Printf("failed to save og image for url %s: %v\n", host, err)
+							p.logger.Error("failed to save og image for url", "host", host, "og_image", ogImage, "error", err)
 						}
 					}
 				} else {
@@ -361,9 +389,9 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					ScannedAt:      int(time.Now().UnixMilli()),
 					IsSvelteKit:    isSvelteKit,
 					Confidence:     10, // placeholder
-					Signals:        "", // placeholder
+					Signals:        selector,
 					FinalURL:       nil,
-					Title:          nil,
+					Title:          &title,
 					Error:          nil,
 					ScreenshotPath: nil,
 					OGImage:        nil,

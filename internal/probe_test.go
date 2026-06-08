@@ -35,18 +35,19 @@ func TestSveltekitOk(t *testing.T) {
 		t.Fatalf("failed to parse html for url %s: %v\n", url, err)
 	}
 
-	isSvelteKit, err := probeHTML(doc)
+	selector, err := probeHTML(doc)
 
 	if err != nil {
 		t.Fatalf("failed to probe html for url %s: %v\n", url, err)
 	}
 
-	if !isSvelteKit {
+	if selector == "" {
 		t.Fatalf("expected url %s to be detected as SvelteKit, but it was not\n", url)
 	}
 }
 
 func TestOgImage(t *testing.T) {
+	t.Parallel()
 
 	html := `
 		<html>
@@ -73,6 +74,7 @@ func TestOgImage(t *testing.T) {
 }
 
 func TestOgImageNotFound(t *testing.T) {
+	t.Parallel()
 
 	html := `
 		<html>
@@ -95,6 +97,7 @@ func TestOgImageNotFound(t *testing.T) {
 }
 
 func TestOgImageFirst(t *testing.T) {
+	t.Parallel()
 
 	html := `
 			<html>
@@ -122,6 +125,7 @@ func TestOgImageFirst(t *testing.T) {
 }
 
 func TestGetImageExtension(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		url  string
