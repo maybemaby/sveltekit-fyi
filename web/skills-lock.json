@@ -1,0 +1,10 @@
+{
+	"version": 1,
+	"skills": {
+		"better-result-adopt": {
+			"source": "dmmulroy/better-result",
+			"sourceType": "github",
+			"computedHash": "bb2cff6d6db16f141cf2d2789a87e0f4a54992f1839a33dc623a434ac49d6115"
+		}
+	}
+}

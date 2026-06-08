@@ -1,0 +1,7 @@
+# Sideproject
+
+## Development
+
+```
+pnpm dev
+```

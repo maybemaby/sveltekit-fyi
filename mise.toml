@@ -6,9 +6,16 @@ LOG_LEVEL = "INFO"
 [tasks.clean]
 run = "rm -rf ./bin"
 
-[tasks.dev]
+[tasks."dev:web"]
+dir = "{{config_root}}/web"
+run = "pnpm dev"
+
+[tasks."dev:server"]
 env = { APP_ENV = "development", DATABASE_URL = "app.db?foreign_keys(1)" }
 run = "go run main.go"
+
+[tasks.dev]
+run = [{tasks = ["dev:web", "dev:server"]}]
 
 [tasks.test]
 run = "go test -v ./..."
