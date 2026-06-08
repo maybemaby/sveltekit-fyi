@@ -101,3 +101,63 @@ func (s *AppStore) SaveScan(ctx context.Context, scan *Scan) error {
 
 	return err
 }
+
+type DomainListing struct {
+	Domain      string  `db:"domain" json:"domain"`
+	FirstSeenAt string  `db:"first_seen_at" json:"first_seen_at"`
+	LastSeenAt  string  `db:"last_seen_at" json:"last_seen_at"`
+	SeenCount   int     `db:"seen_count" json:"seen_count"`
+	Signals     string  `db:"signals" json:"signals"`
+	Title       *string `db:"title" json:"title"`
+	OgImage     *string `db:"og_image" json:"og_image"`
+	Total       int     `db:"total" json:"total"`
+}
+
+const getTopDomains = `WITH top_domains AS (
+  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image
+  FROM domains d
+  INNER JOIN scans s ON d.domain = s.domain
+  WHERE s.is_sk = true
+), counted_domains AS (
+  SELECT *, COUNT(*) OVER () AS total
+  FROM top_domains
+)
+SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total
+FROM counted_domains
+ORDER BY first_seen_at DESC
+LIMIT ? OFFSET ?`
+
+func (s *AppStore) GetTopDomains(ctx context.Context, limit, offset int) ([]DomainListing, error) {
+	rows, err := s.db.QueryContext(ctx, getTopDomains, limit, offset)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	listings := make([]DomainListing, 0)
+
+	for rows.Next() {
+		var listing DomainListing
+
+		err := rows.Scan(
+			&listing.Domain,
+			&listing.FirstSeenAt,
+			&listing.LastSeenAt,
+			&listing.SeenCount,
+			&listing.Signals,
+			&listing.Title,
+			&listing.OgImage,
+			&listing.Total,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		listings = append(listings, listing)
+	}
+
+	return listings, nil
+}

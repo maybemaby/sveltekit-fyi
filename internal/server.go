@@ -3,17 +3,21 @@ package internal
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 type Server struct {
-	srv *http.Server
-	db  *sql.DB
+	srv    *http.Server
+	db     *sql.DB
+	store  *AppStore
+	logger *slog.Logger
 }
 
-func NewServer(ctx context.Context) *Server {
+func NewServer(ctx context.Context, logger *slog.Logger) *Server {
 	srv := &http.Server{
 		Addr: ":8000",
 	}
@@ -24,9 +28,13 @@ func NewServer(ctx context.Context) *Server {
 		panic(err)
 	}
 
+	store := NewAppStore(db)
+
 	return &Server{
-		srv: srv,
-		db:  db,
+		srv:    srv,
+		db:     db,
+		store:  store,
+		logger: logger.WithGroup("server"),
 	}
 }
 
@@ -36,6 +44,37 @@ func (s *Server) Port(addr string) {
 
 func (s *Server) mountRoutes() {
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /scans", func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		if page == "" {
+			page = "1"
+		}
+
+		pageInt, err := strconv.Atoi(page)
+		if err != nil || pageInt < 1 {
+			http.Error(w, "Invalid page parameter", http.StatusBadRequest)
+			return
+		}
+
+		offset := (pageInt - 1) * 20
+
+		domains, err := s.store.GetTopDomains(r.Context(), 20, offset)
+
+		if err != nil {
+			s.logger.Error("failed to get top domains", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		err = json.NewEncoder(w).Encode(domains)
+
+		if err != nil {
+			s.logger.Error("failed to encode response", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		rows, err := s.db.QueryContext(r.Context(), `SELECT * FROM domains ORDER BY seen_count DESC LIMIT 100`)

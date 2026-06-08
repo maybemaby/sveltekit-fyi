@@ -89,7 +89,7 @@ func main() {
 	})
 
 	wg.Go(func() {
-		server := internal.NewServer(ctx)
+		server := internal.NewServer(ctx, logger)
 
 		finished := make(chan struct{})
 
