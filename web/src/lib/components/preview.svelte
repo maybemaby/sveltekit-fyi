@@ -5,11 +5,13 @@
 		domain,
 		timeAgo
 	}: {
-		image?: string;
+		image: string | null;
 		title: string;
 		domain: string;
 		timeAgo: string;
 	} = $props();
+
+	const src = `https://pub-3235f713388b4c8ea24993a410c11571.r2.dev/${encodeURIComponent(image ?? '')}`;
 </script>
 
 <a
@@ -17,9 +19,11 @@
 	target="_blank"
 	class="flex flex-col border rounded-sm focus:border-primary hover:border-primary transition-colors duration-100"
 >
-	<div class="aspect-1280/800 border-b">
+	<div class="aspect-1280/800 border-b relative">
 		{#if image}
-			<img src={image} alt={title} class="object-cover w-full h-full" />
+			<div class="absolute inset-0">
+				<img {src} alt={title} class="object-cover w-full h-full" />
+			</div>
 		{:else}
 			<div class="flex items-center justify-center w-full h-full text-sm text-muted-foreground">
 				No Image Found
@@ -27,7 +31,7 @@
 		{/if}
 	</div>
 	<div class="p-2">
-		<h2 class="font-medium">{domain}</h2>
+		<h2 class="font-medium text-ellipsis line-clamp-1">{domain}</h2>
 		<p class="text-ellipsis line-clamp-1">{title}</p>
 		<p class="text-xs text-muted-foreground">{timeAgo}</p>
 	</div>

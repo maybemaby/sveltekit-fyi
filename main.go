@@ -46,6 +46,17 @@ func runMigrations(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
+func loadS3Config() internal.S3Config {
+	return internal.S3Config{
+		Region:          os.Getenv("S3_REGION"),
+		Bucket:          os.Getenv("S3_BUCKET"),
+		Endpoint:        os.Getenv("S3_ENDPOINT"),
+		AccessKeyID:     os.Getenv("S3_KEY"),
+		SecretAccessKey: os.Getenv("S3_SECRET"),
+		UsePathStyle:    os.Getenv("S3_USE_PATH_STYLE") == "true",
+	}
+}
+
 func main() {
 	logger := createLogger()
 
@@ -74,9 +85,13 @@ func main() {
 	}
 
 	store := internal.NewAppStore(db)
+	s3Client, err := internal.NewS3Client(ctx, loadS3Config())
+	if err != nil {
+		panic(err)
+	}
 
 	wg.Go(func() {
-		processor := internal.NewJetStreamProcessor(store)
+		processor := internal.NewJetStreamProcessor(store, s3Client)
 		processor.SetLogger(logger)
 		jetstreamErr := processor.ProcessEvents(ctx, store)
 

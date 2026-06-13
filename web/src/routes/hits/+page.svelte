@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import Preview from '$lib/components/preview.svelte';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
-	import { getDomains } from '../scans.remote';
+	import { getDomains, getStats } from '../scans.remote';
 
 	const perPage = 30;
 
@@ -18,6 +18,8 @@
 			page: pg
 		})
 	);
+
+	let stats = await getStats();
 
 	let datedDomains = $derived.by(() => {
 		return domains.map((d) => {
@@ -64,9 +66,16 @@
 </script>
 
 <div class="h-full">
+	<p class="mb-4 text-muted-foreground">{stats.scans.confirmedSites} sites</p>
+
 	<div class="grid grid-cols-3 gap-2">
 		{#each datedDomains as domain (domain.domain)}
-			<Preview domain={domain.domain} title={domain.title} timeAgo={domain.timeAgo} />
+			<Preview
+				domain={domain.domain}
+				title={domain.title}
+				timeAgo={domain.timeAgo}
+				image={domain.og_image}
+			/>
 		{/each}
 	</div>
 

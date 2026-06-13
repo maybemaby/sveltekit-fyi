@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
 	"time"
@@ -70,13 +69,15 @@ type JetstreamEvent struct {
 
 type JetStreamProcessor struct {
 	store          *AppStore
+	s3             *S3Client
 	hostRateLimits map[string]time.Time
 	logger         *slog.Logger
 }
 
-func NewJetStreamProcessor(store *AppStore) *JetStreamProcessor {
+func NewJetStreamProcessor(store *AppStore, s3Client *S3Client) *JetStreamProcessor {
 	return &JetStreamProcessor{
 		store:          store,
+		s3:             s3Client,
 		hostRateLimits: make(map[string]time.Time),
 		logger:         slog.New(slog.DiscardHandler),
 	}
@@ -139,33 +140,46 @@ func createHostRequest(host string) (*http.Request, error) {
 	return req, nil
 }
 
-func trySaveImage(url string, hostname string) error {
-	img, err := getImage(url)
-
+func resolveImageURL(baseURL string, rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	extension := getImageExtension(url)
+	if parsed.IsAbs() {
+		return rawURL, nil
+	}
 
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	return base.ResolveReference(parsed).String(), nil
+}
+
+func trySaveImage(ctx context.Context, s3Client *S3Client, imageURL string, baseURL string, hostname string) (string, error) {
+	absImageURL, err := resolveImageURL(baseURL, imageURL)
+	if err != nil {
+		return "", err
+	}
+
+	img, err := getImage(absImageURL)
+	if err != nil {
+		return "", err
+	}
+
+	extension := getImageExtension(absImageURL)
 	if extension == "" {
-		return fmt.Errorf("could not determine image extension for url %s", url)
+		return "", fmt.Errorf("could not determine image extension for url %s", absImageURL)
 	}
 
-	savePath := fmt.Sprintf("og/%s%s", hostname, extension)
-	f, err := os.Create(savePath)
-
-	if err != nil {
-		return err
+	if s3Client == nil {
+		return "", fmt.Errorf("s3 client is not configured")
 	}
 
-	_, err = f.Write(img)
-
-	if err != nil {
-		return err
-	}
-
-	return f.Close()
+	key := fmt.Sprintf("og/%s%s", hostname, extension)
+	return key, s3Client.UploadImage(ctx, key, img)
 }
 
 func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
@@ -381,6 +395,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 				isSvelteKit := selector != ""
 				var title string
+				var key string
 
 				if isSvelteKit {
 					p.logger.Info("URL appears to be a SvelteKit app", "host", host)
@@ -396,7 +411,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					if ogImage != "" {
 						p.logger.Debug("found og image for url", "host", host, "og_image", ogImage)
 
-						err = trySaveImage(ogImage, req.URL.Hostname())
+						key, err = trySaveImage(ctx, p.s3, ogImage, host, req.URL.Hostname())
 
 						if err != nil {
 							p.logger.Error("failed to save og image for url", "host", host, "og_image", ogImage, "error", err)
@@ -416,7 +431,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					Title:          &title,
 					Error:          nil,
 					ScreenshotPath: nil,
-					OGImage:        nil,
+					OGImage:        &key,
 					RedirectedTo:   nil,
 				})
 
