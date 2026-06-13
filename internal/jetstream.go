@@ -126,8 +126,8 @@ func minDuration(a, b time.Duration) time.Duration {
 	return b
 }
 
-func createHostRequest(host string) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodGet, host, nil)
+func createHostRequest(ctx context.Context, host string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, host, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request for url %s: %w", host, err)
@@ -305,7 +305,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					continue
 				}
 
-				req, err := createHostRequest(host)
+				req, err := createHostRequest(ctx, host)
 
 				if err != nil {
 					p.logger.Error("failed to create request for url", "url", host, "error", err)
