@@ -63,23 +63,27 @@ interface SiteCountSnapshot {
 	totalObserved: number;
 }
 
+type ClientFetchOptions = Omit<Parameters<typeof fetch>[1], 'method' | 'body'>;
+
 export class ApiClient {
 	private baseUrl: string;
+	private fetchOptions?: ClientFetchOptions;
 
-	constructor(baseUrl: string) {
+	constructor(baseUrl: string, fetchOptions?: ClientFetchOptions) {
 		this.baseUrl = baseUrl;
+		this.fetchOptions = fetchOptions;
 	}
 
 	async getScanStats() {
-		return safeFetch<CombinedStats>(`${this.baseUrl}/stats`);
+		return safeFetch<CombinedStats>(`${this.baseUrl}/stats`, this.fetchOptions);
 	}
 
 	async getDomainListings(page: number = 1) {
-		return safeFetch<DomainListing[]>(`${this.baseUrl}/scans?page=${page}`);
+		return safeFetch<DomainListing[]>(`${this.baseUrl}/scans?page=${page}`, this.fetchOptions);
 	}
 
 	async getSnapshots() {
-		return safeFetch<SiteCountSnapshot[]>(`${this.baseUrl}/snapshots`);
+		return safeFetch<SiteCountSnapshot[]>(`${this.baseUrl}/snapshots`, this.fetchOptions);
 	}
 }
 
