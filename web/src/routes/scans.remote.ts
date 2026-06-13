@@ -26,3 +26,13 @@ export const getStats = query(async () => {
 
 	return res.value;
 });
+
+export const getSiteCountSnapshots = query(async () => {
+	const res = await apiClient.getSnapshots();
+
+	if (res.isErr()) {
+		throw res.error;
+	}
+
+	return res.value;
+});

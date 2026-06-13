@@ -255,3 +255,47 @@ func (s *AppStore) GetStats(ctx context.Context) (CombinedStats, error) {
 		Signals: signalCounts,
 	}, nil
 }
+
+type SiteCountSnapshot struct {
+	SnapshotAt     int `db:"snapshot_at" json:"snapshotAt"`
+	ConfirmedSites int `db:"sk_count" json:"confirmedSites"`
+	TotalScans     int `db:"total_scans" json:"totalScans"`
+	TotalObserved  int `db:"total_observed" json:"totalObserved"`
+}
+
+const getSnapshotsQuery = `SELECT snapshot_at, sk_count, total_scans, total_observed
+FROM site_count
+ORDER BY snapshot_at DESC
+LIMIT 365
+`
+
+func (s *AppStore) GetSnapshots(ctx context.Context) ([]SiteCountSnapshot, error) {
+	rows, err := s.db.QueryContext(ctx, getSnapshotsQuery)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	snapshots := make([]SiteCountSnapshot, 0)
+
+	for rows.Next() {
+		var snapshot SiteCountSnapshot
+
+		err := rows.Scan(
+			&snapshot.SnapshotAt,
+			&snapshot.ConfirmedSites,
+			&snapshot.TotalScans,
+			&snapshot.TotalObserved,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		snapshots = append(snapshots, snapshot)
+	}
+
+	return snapshots, nil
+}

@@ -95,6 +95,25 @@ func (s *Server) mountRoutes() {
 		}
 	})
 
+	mux.HandleFunc("GET /snapshots", func(w http.ResponseWriter, r *http.Request) {
+		snapshots, err := s.store.GetSnapshots(r.Context())
+		if err != nil {
+			s.logger.Error("failed to get snapshots", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
+
+		err = json.NewEncoder(w).Encode(snapshots)
+
+		if err != nil {
+			s.logger.Error("failed to encode response", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	})
+
 	s.srv.Handler = mux
 }
 

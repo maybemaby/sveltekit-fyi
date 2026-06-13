@@ -127,7 +127,19 @@ func main() {
 		}
 	})
 
+	wg.Go(func() {
+		err := internal.RunSnapshots(ctx, db, logger)
+
+		if err != nil {
+			logger.Error("Snapshotting ran into an error", "error", err)
+		}
+
+		stop()
+	})
+
 	<-ctx.Done()
 
 	wg.Wait()
+
+	os.Exit(0)
 }

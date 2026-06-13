@@ -56,6 +56,13 @@ interface DomainListing {
 	total: number;
 }
 
+interface SiteCountSnapshot {
+	snapshotAt: number;
+	confirmedSites: number;
+	totalScans: number;
+	totalObserved: number;
+}
+
 export class ApiClient {
 	private baseUrl: string;
 
@@ -69,6 +76,10 @@ export class ApiClient {
 
 	async getDomainListings(page: number = 1) {
 		return safeFetch<DomainListing[]>(`${this.baseUrl}/scans?page=${page}`);
+	}
+
+	async getSnapshots() {
+		return safeFetch<SiteCountSnapshot[]>(`${this.baseUrl}/snapshots`);
 	}
 }
 

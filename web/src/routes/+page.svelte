@@ -1,8 +1,11 @@
 <script lang="ts">
 	import StatBox from '$lib/components/stat-box.svelte';
-	import { getStats } from './scans.remote';
+	import { getSiteCountSnapshots, getStats } from './scans.remote';
 
 	let stats = await getStats();
+	let snapshots = await getSiteCountSnapshots();
+
+	console.log('snapshots', snapshots);
 
 	let signals = $derived.by(() =>
 		stats.signals.map((s) => ({
