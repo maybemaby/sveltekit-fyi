@@ -11,7 +11,7 @@
 		timeAgo: string;
 	} = $props();
 
-	const src = `https://pub-3235f713388b4c8ea24993a410c11571.r2.dev/${encodeURIComponent(image ?? '')}`;
+	const src = `${import.meta.env.VITE_STATIC_HOST}/${encodeURIComponent(image ?? '')}`;
 </script>
 
 <a

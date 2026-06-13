@@ -13,7 +13,7 @@ dir = "{{config_root}}/web"
 run = "pnpm dev"
 
 [tasks."dev:server"]
-env = { APP_ENV = "development", DATABASE_URL = "app.db?foreign_keys(1)" }
+env = { APP_ENV = "development" }
 run = "go run main.go"
 
 [tasks.dev]
@@ -38,3 +38,7 @@ run = "golangci-lint run --timeout 5m"
 [tasks.build]
 depends = ["clean"]
 run = "go build -o ./bin/main main.go"
+
+[tasks."build:web"]
+dir = "{{config_root}}/web"
+run = "pnpm build"

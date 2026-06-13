@@ -5,8 +5,6 @@
 	let stats = await getStats();
 	let snapshots = await getSiteCountSnapshots();
 
-	console.log('snapshots', snapshots);
-
 	let signals = $derived.by(() =>
 		stats.signals.map((s) => ({
 			...s,
