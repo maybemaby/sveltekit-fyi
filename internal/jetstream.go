@@ -74,6 +74,11 @@ type JetStreamProcessor struct {
 	logger         *slog.Logger
 }
 
+type errorScan struct {
+	errorMsg string
+	host     string
+}
+
 func NewJetStreamProcessor(store *AppStore, s3Client *S3Client) *JetStreamProcessor {
 	return &JetStreamProcessor{
 		store:          store,
@@ -180,6 +185,22 @@ func trySaveImage(ctx context.Context, s3Client *S3Client, imageURL string, base
 
 	key := fmt.Sprintf("og/%s%s", hostname, extension)
 	return key, s3Client.UploadImage(ctx, key, img)
+}
+
+func saveErrorScan(ctx context.Context, store *AppStore, scan errorScan) error {
+	return store.SaveScan(ctx, &Scan{
+		Domain:         scan.host,
+		ScannedAt:      int(time.Now().UnixMilli()),
+		IsSvelteKit:    false,
+		Confidence:     0,
+		Signals:        "",
+		FinalURL:       nil,
+		Title:          &scan.host,
+		Error:          &scan.errorMsg,
+		ScreenshotPath: nil,
+		OGImage:        nil,
+		RedirectedTo:   nil,
+	})
 }
 
 func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
@@ -321,6 +342,17 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 				if err != nil {
 					p.logger.Error("failed to fetch url", "url", host, "error", err)
+
+					err = saveErrorScan(ctx, p.store, errorScan{
+						errorMsg: err.Error(),
+						host:     host,
+					})
+
+					if err != nil {
+						// Exit if db operation fails
+						return err
+					}
+
 					continue
 				}
 
@@ -334,18 +366,9 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 					errorString := strconv.Itoa(resp.StatusCode)
 
-					err = p.store.SaveScan(ctx, &Scan{
-						Domain:         host,
-						ScannedAt:      int(time.Now().UnixMilli()),
-						IsSvelteKit:    false,
-						Confidence:     0,
-						Signals:        "",
-						FinalURL:       nil,
-						Title:          &host,
-						Error:          &errorString,
-						ScreenshotPath: nil,
-						OGImage:        nil,
-						RedirectedTo:   nil,
+					err = saveErrorScan(ctx, p.store, errorScan{
+						errorMsg: errorString,
+						host:     host,
 					})
 
 					if err != nil {
