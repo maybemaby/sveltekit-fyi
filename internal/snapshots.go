@@ -79,6 +79,10 @@ func RunSnapshots(ctx context.Context, db *sql.DB, logger *slog.Logger) error {
 		case <-timer.C:
 			snapshotAt, err := getLatestSnapshotTime(ctx, db)
 
+			if err != nil {
+				return err
+			}
+
 			snapLogger.Info("latest snapshot", "snapshot_at", snapshotAt)
 
 			if time.Since(snapshotAt) < SNAPSHOT_INTERVAL {

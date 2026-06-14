@@ -3,7 +3,16 @@ package internal
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
+
+func errDeferLog(callback func() error, msg string) {
+	err := callback()
+
+	if err != nil {
+		fmt.Println(msg)
+	}
+}
 
 type AppStore struct {
 	db *sql.DB
@@ -134,7 +143,7 @@ func (s *AppStore) GetTopDomains(ctx context.Context, limit, offset int) ([]Doma
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer errDeferLog(rows.Close, "failed to close rows")
 
 	listings := make([]DomainListing, 0)
 
@@ -210,7 +219,7 @@ func (s *AppStore) getSignalCounts(ctx context.Context) ([]SignalCount, error) {
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer errDeferLog(rows.Close, "failed to close rows")
 
 	counts := make([]SignalCount, 0)
 
@@ -276,7 +285,7 @@ func (s *AppStore) GetSnapshots(ctx context.Context) ([]SiteCountSnapshot, error
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer errDeferLog(rows.Close, "failed to close rows")
 
 	snapshots := make([]SiteCountSnapshot, 0)
 
