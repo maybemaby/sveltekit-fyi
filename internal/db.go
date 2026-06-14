@@ -3,12 +3,18 @@ package internal
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"os"
 
 	_ "modernc.org/sqlite"
 )
 
 func ConnectDB(ctx context.Context) (*sql.DB, error) {
-	dbPath := "sveltekit_fyi.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)"
+	dbPath := os.Getenv("DATABASE_URL")
+
+	if dbPath == "" {
+		return nil, errors.New("DATABASE_URL environment variable is empty.")
+	}
 
 	db, err := sql.Open("sqlite", dbPath)
 
@@ -24,7 +30,11 @@ func ConnectDB(ctx context.Context) (*sql.DB, error) {
 }
 
 func ConnectDBReadOnly(ctx context.Context) (*sql.DB, error) {
-	dbPath := "file:sveltekit_fyi.db?mode=ro&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)"
+	dbPath := os.Getenv("DATABASE_URL")
+
+	if dbPath == "" {
+		return nil, errors.New("DATABASE_URL environment variable is empty.")
+	}
 
 	db, err := sql.Open("sqlite", dbPath)
 

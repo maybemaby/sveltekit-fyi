@@ -8,7 +8,8 @@ import (
 	"time"
 )
 
-const SNAPSHOT_INTERVAL = time.Hour * 24
+// TODO: make it 24 hours once some inital data is recorded
+const SNAPSHOT_INTERVAL = time.Hour * 6
 const getLatestSnapshotTimeQuery = `SELECT snapshot_at FROM site_count ORDER BY snapshot_at DESC LIMIT 1`
 
 func getLatestSnapshotTime(ctx context.Context, db *sql.DB) (time.Time, error) {
