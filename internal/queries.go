@@ -274,7 +274,7 @@ type SiteCountSnapshot struct {
 
 const getSnapshotsQuery = `SELECT snapshot_at, sk_count, total_scans, total_observed
 FROM site_count
-ORDER BY snapshot_at DESC
+ORDER BY snapshot_at ASC
 LIMIT 365
 `
 

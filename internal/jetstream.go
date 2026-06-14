@@ -280,25 +280,6 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 
 			urlsFound := extract_urls(event)
 
-			// var g errgroup.Group
-
-			// for postUrl := range urlsFound {
-			// 	g.Go(func() error {
-			// 		u, err := url.Parse(postUrl)
-
-			// 		if err != nil {
-			// 			p.logger.Error("failed to parse url", "url", postUrl, "error", err)
-			// 			return nil
-			// 		}
-
-			// 		if u.Scheme != "http" && u.Scheme != "https" {
-			// 			return nil
-			// 		}
-			// 	})
-			// }
-
-			// err = g.Wait()
-
 			for postUrl := range urlsFound {
 
 				u, err := url.Parse(postUrl)
