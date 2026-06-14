@@ -8,3 +8,5 @@ bun.lockb
 # Miscellaneous
 /static/
 /drizzle/
+/.svelte-kit/
+worker-configuration.d.ts
