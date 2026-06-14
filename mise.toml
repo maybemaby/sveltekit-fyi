@@ -42,3 +42,8 @@ run = "go build -o ./bin/main main.go"
 [tasks."build:web"]
 dir = "{{config_root}}/web"
 run = "pnpm build"
+
+[tasks.preview]
+env = { NODE_ENV = "production", API_HOST = "http://localhost:8000" }
+dir = "{{config_root}}/web"
+run = "pnpm preview"
