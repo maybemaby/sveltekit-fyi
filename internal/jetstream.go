@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -203,6 +204,12 @@ func saveErrorScan(ctx context.Context, store *AppStore, scan errorScan) error {
 	})
 }
 
+func normalizedDomain(u *url.URL) string {
+	host := u.Hostname()
+	host = strings.ToLower(host)
+	return strings.TrimPrefix(host, "www.")
+}
+
 func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
 	backoff := 5 * time.Second
 	httpClient := &http.Client{Timeout: 10 * time.Second}
@@ -305,7 +312,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					continue
 				}
 
-				host := u.Scheme + "://" + u.Hostname()
+				host := u.Scheme + "://" + normalizedDomain(u)
 				p.logger.Debug("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
 
 				err = store.AddDomainSeen(ctx, host)
