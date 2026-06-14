@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS reply_requests (
   PRIMARY KEY (post_uri, domain)
 );
 
+CREATE TABLE IF NOT EXISTS site_count (
+    sk_count INTEGER NOT NULL,
+    total_scans INTEGER NOT NULL,
+    total_observed INTEGER NOT NULL,
+    snapshot_at   INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_reply_requests_pending
   ON reply_requests (domain) WHERE replied_at IS NULL;
 

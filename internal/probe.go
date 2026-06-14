@@ -95,7 +95,10 @@ func getImage(url string) (image []byte, err error) {
 		return nil, fmt.Errorf("non-200 status code: %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	// Limit to 5MB
+	reader := io.LimitReader(resp.Body, 5242880)
+
+	return io.ReadAll(reader)
 }
 
 func getImageExtension(rawURL string) string {
