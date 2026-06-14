@@ -4,14 +4,18 @@ import type { RequestLogger } from 'evlog';
 // for information about these interfaces
 declare global {
 	namespace App {
-		interface Locals {
-			log: RequestLogger;
+		interface Locals { log: RequestLogger }
+
+		interface Platform {
+			env: Env;
+			ctx: ExecutionContext;
+			caches: CacheStorage;
+			cf?: IncomingRequestCfProperties
 		}
 
 		// interface Error {}
 		// interface PageData {}
 		// interface PageState {}
-		// interface Platform {}
 	}
 }
 
