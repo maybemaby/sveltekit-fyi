@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { env } from '$env/dynamic/public';
+
 	let {
 		image,
 		title,
@@ -11,7 +13,7 @@
 		timeAgo: string;
 	} = $props();
 
-	const src = `${import.meta.env.VITE_STATIC_HOST}/${encodeURIComponent(image ?? '')}`;
+	const src = `${env.PUBLIC_STATIC_HOST}/${encodeURIComponent(image ?? '')}`;
 </script>
 
 <a
