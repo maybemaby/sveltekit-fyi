@@ -59,6 +59,7 @@
   "dependencies": {
     "better-result": "^2.9.2",
     "evlog": "^2.18.1",
+    "svelteplot": "^0.14.2",
     "valibot": "^1.4.1"
   }
 }
