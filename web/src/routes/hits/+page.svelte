@@ -13,13 +13,13 @@
 		return pageParam ? parseInt(pageParam) : 1;
 	});
 
+	let stats = await getStats();
+
 	let domains = $derived(
 		await getDomains({
 			page: pg
 		})
 	);
-
-	let stats = await getStats();
 
 	let datedDomains = $derived.by(() => {
 		return domains.map((d) => {

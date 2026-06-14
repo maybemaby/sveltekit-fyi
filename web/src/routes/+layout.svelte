@@ -21,7 +21,7 @@
 
 		<nav class="flex items-center gap-4">
 			<a
-				href="https://github.com/maybemaby"
+				href="https://github.com/maybemaby/sveltekit-fyi"
 				target="_blank"
 				rel="noopener noreferrer"
 				class="font-mono">Source</a
