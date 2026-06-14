@@ -6,10 +6,15 @@ import { createEvlogHooks } from 'evlog/sveltekit';
 initLogger({
 	env: {
 		environment: !dev ? 'production' : 'development',
-		service: 'sideproject',
+		service: 'sveltekit-fyi',
 		version: '0.1.0'
 	},
-	pretty: dev
+	pretty: dev,
+	sampling: {
+		rates: {
+			info: dev ? 100 : 50
+		}
+	}
 });
 
 const { handle: evlogHandle, handleError: evlogHandleError } = createEvlogHooks();
