@@ -33,7 +33,7 @@
 		{/if}
 	</div>
 	<div class="p-2">
-		<h2 class="font-medium text-ellipsis line-clamp-1">{domain}</h2>
+		<h2 class="font-medium text-ellipsis line-clamp-1 text-primary">{domain}</h2>
 		<p class="text-ellipsis line-clamp-1">{title}</p>
 		<p class="text-xs text-muted-foreground">{timeAgo}</p>
 	</div>
