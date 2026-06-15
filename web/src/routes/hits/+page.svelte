@@ -4,7 +4,7 @@
 	import Preview from '$lib/components/preview.svelte';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import { cn } from '$lib/utils';
-	import { getDomains, getStats } from '../scans.remote';
+	import { getDomains, getStats, type DomainListingOrder } from '../scans.remote';
 
 	const perPage = 30;
 
@@ -14,13 +14,13 @@
 		return pageParam ? parseInt(pageParam) : 1;
 	});
 
-	const validOrders = new Set<'seen_at' | 'seen_count'>(['seen_at', 'seen_count']);
+	const validOrders = new Set<DomainListingOrder>(['seen_at', 'seen_count']);
 
-	let order = $derived.by<'seen_at' | 'seen_count'>(() => {
+	let order = $derived.by<DomainListingOrder>(() => {
 		const orderParam = page.url.searchParams.get('order');
 
-		if (orderParam && validOrders.has(orderParam as 'seen_at' | 'seen_count')) {
-			return orderParam as 'seen_at' | 'seen_count';
+		if (orderParam && validOrders.has(orderParam as DomainListingOrder)) {
+			return orderParam as DomainListingOrder;
 		}
 
 		return 'seen_at';
@@ -78,7 +78,7 @@
 		});
 	}
 
-	async function handleOrderChange(newOrder: 'seen_at' | 'seen_count') {
+	async function handleOrderChange(newOrder: DomainListingOrder) {
 		const url = new URL(page.url);
 
 		if (newOrder === 'seen_at') {
