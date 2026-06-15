@@ -133,11 +133,25 @@ const getTopDomains = `WITH top_domains AS (
 )
 SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total
 FROM counted_domains
-ORDER BY first_seen_at DESC
+ORDER BY %s
 LIMIT ? OFFSET ?`
 
-func (s *AppStore) GetTopDomains(ctx context.Context, limit, offset int) ([]DomainListing, error) {
-	rows, err := s.db.QueryContext(ctx, getTopDomains, limit, offset)
+func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offset int) ([]DomainListing, error) {
+
+	ordering := map[string]string{
+		"seen_at":    "first_seen_at DESC",
+		"seen_count": "seen_count DESC",
+	}
+
+	orderBy, ok := ordering[order]
+
+	if !ok {
+		orderBy = "first_seen_at DESC"
+	}
+
+	query := fmt.Sprintf(getTopDomains, orderBy)
+
+	rows, err := s.db.QueryContext(ctx, query, limit, offset)
 
 	if err != nil {
 		return nil, err

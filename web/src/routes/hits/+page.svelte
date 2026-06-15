@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import Preview from '$lib/components/preview.svelte';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
+	import { cn } from '$lib/utils';
 	import { getDomains, getStats } from '../scans.remote';
 
 	const perPage = 30;
@@ -13,11 +14,24 @@
 		return pageParam ? parseInt(pageParam) : 1;
 	});
 
+	const validOrders = new Set<'seen_at' | 'seen_count'>(['seen_at', 'seen_count']);
+
+	let order = $derived.by<'seen_at' | 'seen_count'>(() => {
+		const orderParam = page.url.searchParams.get('order');
+
+		if (orderParam && validOrders.has(orderParam as 'seen_at' | 'seen_count')) {
+			return orderParam as 'seen_at' | 'seen_count';
+		}
+
+		return 'seen_at';
+	});
+
 	let stats = await getStats();
 
 	let domains = $derived(
 		await getDomains({
-			page: pg
+			page: pg,
+			order
 		})
 	);
 
@@ -49,7 +63,7 @@
 	let total = $derived(domains[0]?.total ?? 0);
 	let pageCount = $derived(Math.max(1, Math.ceil(total / perPage)));
 
-	function handlePageChange(nextPage: number) {
+	async function handlePageChange(nextPage: number) {
 		const url = new URL(page.url);
 
 		if (nextPage <= 1) {
@@ -58,7 +72,22 @@
 			url.searchParams.set('page', String(nextPage));
 		}
 
-		void goto(url, {
+		await goto(url, {
+			noScroll: true,
+			keepFocus: true
+		});
+	}
+
+	async function handleOrderChange(newOrder: 'seen_at' | 'seen_count') {
+		const url = new URL(page.url);
+
+		if (newOrder === 'seen_at') {
+			url.searchParams.delete('order');
+		} else {
+			url.searchParams.set('order', newOrder);
+		}
+
+		await goto(url, {
 			noScroll: true,
 			keepFocus: true
 		});
@@ -66,7 +95,20 @@
 </script>
 
 <div class="h-full">
-	<p class="mb-4 text-muted-foreground">{stats.scans.confirmedSites} sites</p>
+	<p class="mb-2 text-muted-foreground">{stats.scans.confirmedSites} sites</p>
+	<div class="flex mb-4">
+		<button
+			class={cn('p-2 border', order === 'seen_at' && 'bg-primary/10 text-primary border-primary')}
+			onclick={() => handleOrderChange('seen_at')}>Last Seen</button
+		>
+		<button
+			class={cn(
+				'p-2 border border-l-0',
+				order === 'seen_count' && 'bg-primary/10 text-primary border-primary border-l'
+			)}
+			onclick={() => handleOrderChange('seen_count')}>Most Mentions on Bluesky</button
+		>
+	</div>
 
 	<div class="grid grid-cols-3 gap-2">
 		{#each datedDomains as domain (domain.domain)}
@@ -101,11 +143,7 @@
 								</Pagination.Item>
 							{:else}
 								<Pagination.Item>
-									<Pagination.Link
-										href={`?page=${pageItem.value}`}
-										page={pageItem}
-										isActive={currentPage === pageItem.value}
-									>
+									<Pagination.Link page={pageItem} isActive={currentPage === pageItem.value}>
 										{pageItem.value}
 									</Pagination.Link>
 								</Pagination.Item>

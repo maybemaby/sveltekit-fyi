@@ -46,6 +46,13 @@ func (s *Server) mountRoutes() {
 
 	mux.HandleFunc("GET /scans", func(w http.ResponseWriter, r *http.Request) {
 		page := r.URL.Query().Get("page")
+		order := r.URL.Query().Get("order")
+
+		if order != "" && order != "seen_count" && order != "seen_at" {
+			http.Error(w, "Invalid order parameter", http.StatusBadRequest)
+			return
+		}
+
 		if page == "" {
 			page = "1"
 		}
@@ -58,7 +65,7 @@ func (s *Server) mountRoutes() {
 
 		offset := (pageInt - 1) * 30
 
-		domains, err := s.store.GetTopDomains(r.Context(), 30, offset)
+		domains, err := s.store.GetTopDomains(r.Context(), order, 30, offset)
 
 		if err != nil {
 			s.logger.Error("failed to get top domains", "error", err)
