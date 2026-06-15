@@ -78,8 +78,11 @@ export class ApiClient {
 		return safeFetch<CombinedStats>(`${this.baseUrl}/stats`, this.fetchOptions);
 	}
 
-	async getDomainListings(page: number = 1) {
-		return safeFetch<DomainListing[]>(`${this.baseUrl}/scans?page=${page}`, this.fetchOptions);
+	async getDomainListings(page: number = 1, order: 'seen_at' | 'seen_count' = 'seen_at') {
+		return safeFetch<DomainListing[]>(
+			`${this.baseUrl}/scans?page=${page}&order=${order}`,
+			this.fetchOptions
+		);
 	}
 
 	async getSnapshots() {

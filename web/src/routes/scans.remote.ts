@@ -4,10 +4,11 @@ import * as v from 'valibot';
 
 export const getDomains = query(
 	v.object({
-		page: v.optional(v.pipe(v.number(), v.integer()))
+		page: v.optional(v.pipe(v.number(), v.integer())),
+		order: v.optional(v.picklist(['seen_at', 'seen_count']), 'seen_at')
 	}),
 	async (data) => {
-		const res = await apiClient.getDomainListings(data.page);
+		const res = await apiClient.getDomainListings(data.page, data.order);
 
 		if (res.isErr()) {
 			throw res.error;
