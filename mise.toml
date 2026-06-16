@@ -5,7 +5,7 @@ RUN_MIGRATIONS = "false"
 LOG_LEVEL = "INFO"
 
 [tasks.clean]
-run = "rm -rf ./bin"
+run = ["rm -rf ./bin", "rm -rf sveltekit-fyi-backup*.db"]
 
 [tasks."dev:web"]
 env = { NODE_ENV = "development", API_HOST = "http://localhost:8000" }

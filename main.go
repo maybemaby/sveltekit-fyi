@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/maybemaby/sveltekit-fyi/internal"
 	"github.com/maybemaby/sveltekit-fyi/migrations"
@@ -57,6 +58,22 @@ func loadS3Config() internal.S3Config {
 	}
 }
 
+func setupDb(ctx context.Context) (*sql.DB, error) {
+	db, err := internal.ConnectDB(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = runMigrations(ctx, db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
 func main() {
 	logger := createLogger()
 
@@ -64,9 +81,10 @@ func main() {
 	defer stop()
 	wg := &sync.WaitGroup{}
 
-	db, err := internal.ConnectDB(ctx)
+	db, err := setupDb(ctx)
 
 	if err != nil {
+		logger.Error("failed to set up database", "error", err)
 		panic(err)
 	}
 
@@ -77,15 +95,9 @@ func main() {
 		}
 	}()
 
-	err = runMigrations(ctx, db)
-
-	if err != nil {
-		logger.Error("failed to run migrations", "error", err)
-		panic(err)
-	}
-
 	store := internal.NewAppStore(db)
 	s3Client, err := internal.NewS3Client(ctx, loadS3Config())
+
 	if err != nil {
 		panic(err)
 	}
@@ -140,6 +152,17 @@ func main() {
 	<-ctx.Done()
 
 	wg.Wait()
+
+	backupCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+
+	err = internal.BackupDB(backupCtx, db, s3Client)
+
+	if err != nil {
+		logger.Error("failed to backup database", "error", err)
+		os.Exit(1)
+	}
+
+	cancel()
 
 	os.Exit(0)
 }
