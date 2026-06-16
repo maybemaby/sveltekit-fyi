@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -23,27 +24,27 @@ var jetstreamUrl = "wss://jetstream2.us-west.bsky.network/subscribe?wantedCollec
 
 // Popular domains that are frequently linked in posts but are unlikely to be SvelteKit apps, so we can skip scanning them
 var ignoreDomains = map[string]struct{}{
-	"bsky.app":         {},
-	"bsky.social":      {},
-	"youtube.com":      {},
-	"twitter.com":      {},
-	"x.com":            {},
-	"facebook.com":     {},
-	"instagram.com":    {},
-	"m.youtube.com":    {},
-	"google.com":       {},
-	"goo.gl":           {},
-	"bit.ly":           {},
-	"t.co":             {},
-	"amazon.com":       {},
-	"reddit.com":       {},
-	"linkedin.com":     {},
-	"medium.com":       {},
-	"twitch.tv":        {},
-	"discord.com":      {},
-	"discord.gg":       {},
-	"spotify.com":      {},
-	"open.spotify.com": {},
+	"bsky.app":          {},
+	"bsky.social":       {},
+	"youtube.com":       {},
+	"twitter.com":       {},
+	"x.com":             {},
+	"facebook.com":      {},
+	"instagram.com":     {},
+	"m.youtube.com":     {},
+	"google.com":        {},
+	"goo.gl":            {},
+	"bit.ly":            {},
+	"t.co":              {},
+	"amazon.com":        {},
+	"reddit.com":        {},
+	"linkedin.com":      {},
+	"medium.com":        {},
+	"twitch.tv":         {},
+	"discord.com":       {},
+	"discord.gg":        {},
+	"spotify.com":       {},
+	"open.spotify.com":  {},
 	"static.klipy.com":  {},
 	"open.substack.com": {},
 }
@@ -406,7 +407,10 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					continue
 				}
 
-				doc, err := goquery.NewDocumentFromReader(resp.Body)
+				// Limit html parsing to 5MB to avoid DoS with huge responses
+				limitedBody := io.LimitReader(resp.Body, 5*1024*1024) // limit to 5MB
+
+				doc, err := goquery.NewDocumentFromReader(limitedBody)
 
 				if err != nil {
 					fmt.Printf("failed to parse html for url %s: %v\n", host, err)
