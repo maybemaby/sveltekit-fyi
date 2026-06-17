@@ -21,6 +21,7 @@ import (
 
 var rescanInterval = 30 * 24 * time.Hour
 var jetstreamUrl = "wss://jetstream2.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
+var nsfwRegex = regexp.MustCompile(`(?i)(porn|nsfw|xxx|hentai)`)
 
 // Popular domains that are frequently linked in posts but are unlikely to be SvelteKit apps, so we can skip scanning them
 var ignoreDomains = map[string]struct{}{
@@ -238,6 +239,10 @@ func normalizedDomain(u *url.URL) string {
 	return strings.TrimPrefix(host, "www.")
 }
 
+func checkNSFW(title string) bool {
+	return nsfwRegex.MatchString(title)
+}
+
 func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
 	backoff := 5 * time.Second
 	httpClient := &http.Client{Timeout: 10 * time.Second}
@@ -445,6 +450,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 				isSvelteKit := selector != ""
 				var title string
 				var key string
+				var nsfw bool
 
 				if isSvelteKit {
 					p.logger.Info("URL appears to be a SvelteKit app", "host", host)
@@ -455,6 +461,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 						title = host
 					}
 
+					nsfw = checkNSFW(title)
 					ogImage := probeOgImage(doc)
 
 					if ogImage != "" {
@@ -482,6 +489,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					ScreenshotPath: nil,
 					OGImage:        &key,
 					RedirectedTo:   nil,
+					IsNSFW:         &nsfw,
 				})
 
 				if err != nil {

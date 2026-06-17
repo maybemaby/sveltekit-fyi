@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS scans (
   screenshot_path TEXT,
   og_image        TEXT,
   redirected_to   TEXT,
-  error           TEXT
+  error           TEXT,
+  is_nsfw         INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -66,8 +67,13 @@ CREATE TABLE IF NOT EXISTS site_count (
 CREATE INDEX IF NOT EXISTS idx_reply_requests_pending
   ON reply_requests (domain) WHERE replied_at IS NULL;
 
-  INSERT INTO scans (domain, scanned_at, is_sk, confidence, signals) VALUES
-  ('https://example.com', strftime('%s', 'now'), 1, 100, '["signal1", "signal2"]')
+  INSERT INTO domains (domain, first_seen_at, last_seen_at, seen_count) VALUES
+		('https://example.com', strftime('%s', 'now'), strftime('%s', 'now'), 1),
+		('https://nsfwsite.com', strftime('%s', 'now'), strftime('%s', 'now'), 1);
+
+  INSERT INTO scans (domain, scanned_at, is_sk, confidence, signals, is_nsfw) VALUES
+  ('https://example.com', strftime('%s', 'now'), 1, 100, '["signal1", "signal2"]', 0),
+  ('https://nsfwsite.com', strftime('%s', 'now'), 0, 50, '["signal3"]', 1);
   `)
 
 	if err != nil {
@@ -96,7 +102,7 @@ func TestAddDomainUpsert(t *testing.T) {
 
 	store := internal.NewAppStore(db)
 
-	domain := "https://example.com"
+	domain := "https://example1.com"
 
 	err := store.AddDomainSeen(t.Context(), domain)
 
@@ -139,6 +145,30 @@ func TestGetScanByDomain(t *testing.T) {
 	}
 }
 
+func TestMarkScanAsNSFW(t *testing.T) {
+	db := setupTestDB()
+
+	store := internal.NewAppStore(db)
+
+	err := store.MarkScanNSFW(t.Context(), "https://example.com")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestMarkScanAsNSFWNotFound(t *testing.T) {
+	db := setupTestDB()
+
+	store := internal.NewAppStore(db)
+
+	err := store.MarkScanNSFW(t.Context(), "https://nonexistent.com")
+
+	if err == nil {
+		t.Fatalf("expected error for non-existent domain, got nil")
+	}
+}
+
 func TestGetScanNotFound(t *testing.T) {
 	db := setupTestDB()
 
@@ -152,5 +182,25 @@ func TestGetScanNotFound(t *testing.T) {
 
 	if err != sql.ErrNoRows {
 		t.Fatalf("expected sql.ErrNoRows, got %v", err)
+	}
+}
+
+func TestGetTopDomains(t *testing.T) {
+	db := setupTestDB()
+
+	store := internal.NewAppStore(db)
+
+	domains, err := store.GetTopDomains(t.Context(), "seen_at", 10, 0)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(domains) != 1 {
+		t.Fatalf("expected 1 domains, got %d", len(domains))
+	}
+
+	if domains[0].Domain != "https://example.com" {
+		t.Errorf("expected first domain to be https://example.com, got %s", domains[0].Domain)
 	}
 }
