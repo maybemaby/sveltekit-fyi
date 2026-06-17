@@ -50,6 +50,7 @@ type Scan struct {
 	ScreenshotPath *string `db:"screenshot_path"`
 	OGImage        *string `db:"og_image"`
 	RedirectedTo   *string `db:"redirected_to"`
+	IsNSFW         *bool   `db:"is_nsfw"`
 }
 
 func (s *AppStore) GetScanByDomain(ctx context.Context, domain string) (*Scan, error) {
@@ -69,6 +70,7 @@ func (s *AppStore) GetScanByDomain(ctx context.Context, domain string) (*Scan, e
 		&scan.ScreenshotPath,
 		&scan.OGImage,
 		&scan.RedirectedTo,
+		&scan.IsNSFW,
 	)
 
 	if err != nil {
@@ -78,8 +80,8 @@ func (s *AppStore) GetScanByDomain(ctx context.Context, domain string) (*Scan, e
 	return &scan, nil
 }
 
-const upsertScan = `INSERT INTO scans (domain, scanned_at, is_sk, confidence, signals, final_url, title, error, screenshot_path, og_image, redirected_to)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const upsertScan = `INSERT INTO scans (domain, scanned_at, is_sk, confidence, signals, final_url, title, error, screenshot_path, og_image, redirected_to, is_nsfw)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (domain) DO UPDATE SET
 scanned_at = EXCLUDED.scanned_at,
 is_sk = EXCLUDED.is_sk,
@@ -106,9 +108,30 @@ func (s *AppStore) SaveScan(ctx context.Context, scan *Scan) error {
 		scan.ScreenshotPath,
 		scan.OGImage,
 		scan.RedirectedTo,
+		scan.IsNSFW,
 	)
 
 	return err
+}
+
+func (s *AppStore) MarkScanNSFW(ctx context.Context, domain string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE scans SET is_nsfw = 1 WHERE domain = ?`, domain)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows updated for domain: %s", domain)
+	}
+
+	return nil
 }
 
 type DomainListing struct {
@@ -123,10 +146,10 @@ type DomainListing struct {
 }
 
 const getTopDomains = `WITH top_domains AS (
-  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image
+  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image, s.is_nsfw
   FROM domains d
   INNER JOIN scans s ON d.domain = s.domain
-  WHERE s.is_sk = true
+  WHERE s.is_sk = true AND (s.is_nsfw = 0 OR s.is_nsfw IS NULL)
 ), counted_domains AS (
   SELECT *, COUNT(*) OVER () AS total
   FROM top_domains
