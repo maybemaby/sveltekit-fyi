@@ -6,14 +6,20 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 )
 
 type Server struct {
-	srv    *http.Server
-	db     *sql.DB
-	store  *AppStore
-	logger *slog.Logger
+	srv      *http.Server
+	db       *sql.DB
+	store    *AppStore
+	logger   *slog.Logger
+	adminKey string
+}
+
+type MarkNSFWRequest struct {
+	Domain string `json:"domain"`
 }
 
 func NewServer(ctx context.Context, logger *slog.Logger) *Server {
@@ -30,10 +36,11 @@ func NewServer(ctx context.Context, logger *slog.Logger) *Server {
 	store := NewAppStore(db)
 
 	return &Server{
-		srv:    srv,
-		db:     db,
-		store:  store,
-		logger: logger.WithGroup("server"),
+		srv:      srv,
+		db:       db,
+		store:    store,
+		logger:   logger.WithGroup("server"),
+		adminKey: os.Getenv("ADMIN_KEY"),
 	}
 }
 
@@ -119,6 +126,36 @@ func (s *Server) mountRoutes() {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+	})
+
+	mux.HandleFunc("POST /mark-nsfw", func(w http.ResponseWriter, r *http.Request) {
+
+		authHeader := r.Header.Get("Authorization")
+
+		if s.adminKey == "" || authHeader != "Bearer "+s.adminKey {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		var req MarkNSFWRequest
+
+		err := json.NewDecoder(r.Body).Decode(&req)
+
+		if err != nil {
+			s.logger.Error("failed to decode request body", "error", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		err = s.store.MarkScanNSFW(r.Context(), req.Domain)
+
+		if err != nil {
+			s.logger.Error("failed to mark scan as nsfw", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	s.srv.Handler = mux

@@ -56,6 +56,25 @@ func probeTitle(doc *goquery.Document) string {
 	return ""
 }
 
+var descriptionSelectors = []string{
+	`meta[property="og:description"]`,
+	`meta[name="og:description"]`,
+	`meta[property="twitter:description"]`,
+	`meta[name="twitter:description"]`,
+	`meta[name="description"]`,
+}
+
+func probeDescription(doc *goquery.Document) string {
+	for _, selector := range descriptionSelectors {
+
+		if content, exists := doc.Find(selector).Attr("content"); exists {
+			return content
+		}
+	}
+
+	return ""
+}
+
 var ogImageSelectors = []string{
 	`meta[property="og:image:secure_url"]`,
 	`meta[name="og:image:secure_url"]`,

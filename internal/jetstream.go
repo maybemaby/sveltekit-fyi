@@ -239,8 +239,8 @@ func normalizedDomain(u *url.URL) string {
 	return strings.TrimPrefix(host, "www.")
 }
 
-func checkNSFW(title string) bool {
-	return nsfwRegex.MatchString(title)
+func checkNSFW(description string) bool {
+	return nsfwRegex.MatchString(description)
 }
 
 func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
@@ -450,18 +450,26 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 				isSvelteKit := selector != ""
 				var title string
 				var key string
-				var nsfw bool
+				// We want to default to null, NSFW check is pretty weak right now. Leaving it as null allows us to distinguish between "we checked and it's not nsfw" and "we didn't check"
+				var nsfw *bool = nil
 
 				if isSvelteKit {
 					p.logger.Info("URL appears to be a SvelteKit app", "host", host)
 
 					title = probeTitle(doc)
+					description := probeDescription(doc)
 
 					if title == "" {
 						title = host
 					}
 
-					nsfw = checkNSFW(title)
+					detectedNsfw := checkNSFW(description)
+
+					if detectedNsfw {
+						nsfw = &detectedNsfw
+						p.logger.Info("content appears to be NSFW based on description", "host", host)
+					}
+
 					ogImage := probeOgImage(doc)
 
 					if ogImage != "" {
@@ -489,7 +497,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 					ScreenshotPath: nil,
 					OGImage:        &key,
 					RedirectedTo:   nil,
-					IsNSFW:         &nsfw,
+					IsNSFW:         nsfw,
 				})
 
 				if err != nil {
