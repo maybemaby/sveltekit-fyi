@@ -162,3 +162,77 @@ func TestGetImageExtension(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDescription(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		html string
+		want string
+	}{
+		{
+			name: "description meta tag",
+			html: `
+				<html>
+					<head>
+						<meta name="description" content="This is a test description.">
+					</head>
+					<body></body>
+				</html>
+			`,
+			want: "This is a test description.",
+		},
+		{
+			name: "og:description meta tag",
+			html: `
+				<html>
+					<head>
+						<meta property="og:description" content="This is a test description.">
+					</head>
+					<body></body>
+				</html>
+			`,
+			want: "This is a test description.",
+		},
+		{
+			name: "twitter:description meta tag",
+			html: `
+				<html>
+					<head>
+						<meta name="twitter:description" content="This is a test description.">
+					</head>
+					<body></body>
+				</html>
+			`,
+			want: "This is a test description.",
+		},
+		{
+			name: "no description meta tags",
+			html: `
+				<html>
+					<head></head>
+					<body></body>
+				</html>
+			`,
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, err := goquery.NewDocumentFromReader(strings.NewReader(tt.html))
+
+			if err != nil {
+				t.Fatalf("failed to parse html: %v\n", err)
+			}
+
+			description := probeDescription(doc)
+
+			if description != tt.want {
+				t.Fatalf("expected description to be %s, but got %s\n", tt.want, description)
+			}
+		})
+	}
+
+}
