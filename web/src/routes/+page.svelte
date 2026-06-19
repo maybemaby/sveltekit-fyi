@@ -2,6 +2,8 @@
 	import { Plot, Line } from 'svelteplot';
 	import StatBox from '$lib/components/stat-box.svelte';
 	import { getSiteCountSnapshots, getStats } from './scans.remote';
+	import Radar from '$lib/components/radar.svelte';
+	import { browser } from '$app/environment';
 
 	let stats = await getStats();
 	let snapshots = await getSiteCountSnapshots();
@@ -40,5 +42,11 @@
 			<div class="font-mono">{signal.signals}</div>
 			<div class="font-mono">{signal.count}</div>
 		{/each}
+	</div>
+	<div class="grid place-items-center">
+		{#if browser}
+			<Radar />
+			<p class="font-mono">SEARCHING FOR SVELTEKIT SITES...</p>
+		{/if}
 	</div>
 </div>
