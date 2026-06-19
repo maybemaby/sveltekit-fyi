@@ -7,22 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      better-result:
-        specifier: ^2.9.2
-        version: 2.9.2
-      evlog:
-        specifier: ^2.18.1
-        version: 2.18.1(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0))
-      svelteplot:
-        specifier: ^0.14.2
-        version: 0.14.2(svelte@5.56.1(@typescript-eslint/types@8.59.0))
-      valibot:
-        specifier: ^1.4.1
-        version: 1.4.1(typescript@6.0.3)
-      zdog:
-        specifier: ^1.1.3
-        version: 1.1.3
     devDependencies:
       '@eslint/compat':
         specifier: latest
@@ -61,11 +45,14 @@ importers:
         specifier: 25.9.1
         version: 25.9.1
       '@types/zdog':
-        specifier: ^1.1.7
+        specifier: 1.1.7
         version: 1.1.7
       '@vitest/browser-playwright':
         specifier: 4.1.5
         version: 4.1.5(playwright@1.59.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0))(vitest@4.1.8)
+      better-result:
+        specifier: ^2.9.2
+        version: 2.9.2
       bits-ui:
         specifier: 2.18.1
         version: 2.18.1(@internationalized/date@3.12.2)(@sveltejs/kit@2.61.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.1(@typescript-eslint/types@8.59.0))(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)))(svelte@5.56.1(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)))(svelte@5.56.1(@typescript-eslint/types@8.59.0))
@@ -81,6 +68,9 @@ importers:
       eslint-plugin-svelte:
         specifier: 3.17.1
         version: 3.17.1(eslint@10.2.1(jiti@2.7.0))(svelte@5.56.1(@typescript-eslint/types@8.59.0))
+      evlog:
+        specifier: ^2.18.1
+        version: 2.18.1(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0))
       globals:
         specifier: 17.5.0
         version: 17.5.0
@@ -105,6 +95,9 @@ importers:
       svelte-check:
         specifier: 4.4.6
         version: 4.4.6(picomatch@4.0.4)(svelte@5.56.1(@typescript-eslint/types@8.59.0))(typescript@6.0.3)
+      svelteplot:
+        specifier: ^0.14.2
+        version: 0.14.2(svelte@5.56.1(@typescript-eslint/types@8.59.0))
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
@@ -123,6 +116,9 @@ importers:
       typescript-eslint:
         specifier: 8.59.0
         version: 8.59.0(eslint@10.2.1(jiti@2.7.0))(typescript@6.0.3)
+      valibot:
+        specifier: ^1.4.1
+        version: 1.4.1(typescript@6.0.3)
       vite:
         specifier: 8.0.16
         version: 8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)
@@ -135,6 +131,9 @@ importers:
       wrangler:
         specifier: 4.100.0
         version: 4.100.0(@cloudflare/workers-types@4.20260611.1)
+      zdog:
+        specifier: 1.1.3
+        version: 1.1.3
 
 packages:
 
