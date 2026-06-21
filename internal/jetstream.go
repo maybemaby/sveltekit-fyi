@@ -243,7 +243,7 @@ func checkNSFW(description string) bool {
 	return nsfwRegex.MatchString(description)
 }
 
-func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore) error {
+func (p *JetStreamProcessor) ProcessEvents(ctx context.Context) error {
 	backoff := 5 * time.Second
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	retries := 0
@@ -336,7 +336,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context, store *AppStore)
 				host := u.Scheme + "://" + normalized
 				p.logger.Debug("found url in event", "url", host, "event", fmt.Sprintf("bsky.app %s", event.Commit.RKey))
 
-				err = store.AddDomainSeen(ctx, host)
+				err = p.store.AddDomainSeen(ctx, host)
 
 				if err != nil {
 					return err

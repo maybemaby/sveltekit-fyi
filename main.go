@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -74,6 +75,33 @@ func setupDb(ctx context.Context) (*sql.DB, error) {
 	return db, nil
 }
 
+func runBackup(db *sql.DB, client *internal.S3Client) error {
+	backupCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	err := internal.BackupDB(backupCtx, db, client)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runJetStream(ctx context.Context, store *internal.AppStore, client *internal.S3Client, logger *slog.Logger) error {
+	processor := internal.NewJetStreamProcessor(store, client)
+	processor.SetLogger(logger)
+
+	err := processor.ProcessEvents(ctx)
+
+	if err != nil && !errors.Is(err, context.Canceled) {
+		logger.Error("error processing jetstream events", "error", err)
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	logger := createLogger()
 
@@ -104,16 +132,7 @@ func main() {
 	}
 
 	errGroup.Go(func() error {
-		processor := internal.NewJetStreamProcessor(store, s3Client)
-		processor.SetLogger(logger)
-		jetstreamErr := processor.ProcessEvents(ctx, store)
-
-		if jetstreamErr != nil {
-			logger.Error("error processing jetstream events", "error", jetstreamErr)
-			return jetstreamErr
-		}
-
-		return nil
+		return runJetStream(ctx, store, s3Client, logger)
 	})
 
 	errGroup.Go(func() error {
@@ -144,7 +163,7 @@ func main() {
 	errGroup.Go(func() error {
 		err := internal.RunSnapshots(ctx, db, logger)
 
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("Snapshotting ran into an error", "error", err)
 			return err
 		}
@@ -154,18 +173,17 @@ func main() {
 
 	<-ctx.Done()
 
-	errGroup.Wait()
+	err = errGroup.Wait()
+	if err != nil {
+		logger.Error("exited with an error", "error", err)
+	}
 
-	backupCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-
-	err = internal.BackupDB(backupCtx, db, s3Client)
+	err = runBackup(db, s3Client)
 
 	if err != nil {
 		logger.Error("failed to backup database", "error", err)
 		os.Exit(1)
 	}
-
-	cancel()
 
 	os.Exit(0)
 }
