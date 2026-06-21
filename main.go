@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/maybemaby/sveltekit-fyi/internal"
 	"github.com/maybemaby/sveltekit-fyi/migrations"
+	"golang.org/x/sync/errgroup"
 )
 
 func createLogger() *slog.Logger {
@@ -79,7 +79,8 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	wg := &sync.WaitGroup{}
+
+	errGroup, ctx := errgroup.WithContext(ctx)
 
 	db, err := setupDb(ctx)
 
@@ -102,20 +103,20 @@ func main() {
 		panic(err)
 	}
 
-	wg.Go(func() {
+	errGroup.Go(func() error {
 		processor := internal.NewJetStreamProcessor(store, s3Client)
 		processor.SetLogger(logger)
 		jetstreamErr := processor.ProcessEvents(ctx, store)
 
 		if jetstreamErr != nil {
 			logger.Error("error processing jetstream events", "error", jetstreamErr)
+			return jetstreamErr
 		}
 
-		// We want the process to exit if the jetstream connection is lost, so we call stop() here to trigger a shutdown of the app
-		stop()
+		return nil
 	})
 
-	wg.Go(func() {
+	errGroup.Go(func() error {
 		server := internal.NewServer(ctx, logger)
 
 		finished := make(chan struct{})
@@ -133,25 +134,27 @@ func main() {
 		select {
 		case <-finished:
 			logger.Info("http server stopped")
-			stop()
 		case <-ctx.Done():
 			logger.Info("shutting down http server")
 		}
+
+		return nil
 	})
 
-	wg.Go(func() {
+	errGroup.Go(func() error {
 		err := internal.RunSnapshots(ctx, db, logger)
 
 		if err != nil {
 			logger.Error("Snapshotting ran into an error", "error", err)
+			return err
 		}
 
-		stop()
+		return nil
 	})
 
 	<-ctx.Done()
 
-	wg.Wait()
+	errGroup.Wait()
 
 	backupCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 
