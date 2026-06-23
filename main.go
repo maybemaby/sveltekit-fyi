@@ -156,6 +156,29 @@ func main() {
 		return nil
 	})
 
+	if cfg.CloudflareAPIKey != "" && cfg.CloudflareAccountID != "" {
+		logger.Info("Cloudflare screenshotting enabled")
+		renderer, err := internal.NewCloudflareRenderer(cfg.CloudflareAccountID, cfg.CloudflareAPIKey)
+
+		if err != nil {
+			logger.Error("failed to create cloudflare renderer", "error", err)
+			panic(err)
+		}
+
+		screenshotService := internal.NewScreenshotService(renderer, store, s3Client)
+		screenshotService.SetLogger(logger)
+
+		errGroup.Go(func() error {
+			err := screenshotService.Run(ctx)
+
+			if err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
+
+			return nil
+		})
+	}
+
 	<-ctx.Done()
 
 	err = errGroup.Wait()

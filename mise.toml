@@ -2,7 +2,7 @@
 _.file = ".env"
 DATABASE_URL = "sveltekit_fyi.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)"
 RUN_MIGRATIONS = "false"
-LOG_LEVEL = "INFO"
+LOG_LEVEL = "DEBUG"
 
 [tasks.clean]
 run = ["rm -rf ./bin", "rm -rf sveltekit-fyi-backup*.db"]
