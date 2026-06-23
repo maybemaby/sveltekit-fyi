@@ -58,7 +58,6 @@ func (s *ScreenshotService) Run(ctx context.Context) error {
 
 }
 
-// TODO: Avoid getting caught in a loop of failing to capture screenshots for invalid domains. We should mark them as failed and not try again.
 func (s *ScreenshotService) runLoop(ctx context.Context) error {
 
 	scan, err := s.appStore.GetScanToScreenshot(ctx)
@@ -74,7 +73,7 @@ func (s *ScreenshotService) runLoop(ctx context.Context) error {
 		return err
 	}
 
-	err = retry(3, time.Minute*2, func(retryAttempt int) error {
+	err = retry(ctx, 3, time.Minute*2, func(retryAttempt int) error {
 
 		if retryAttempt > 0 {
 			s.logger.Warn("retrying screenshot capture", "domain", scan.Domain, "attempt", retryAttempt)
