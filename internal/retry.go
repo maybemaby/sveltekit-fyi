@@ -1,16 +1,26 @@
 package internal
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // retries func fn up to attempts times, sleeping for sleep duration between attempts. If fn returns nil, retry returns nil. If fn returns an error, retry will return the last error returned by fn after all attempts have been exhausted.
-func retry(attempts int, sleep time.Duration, fn func(retryAttempt int) error) error {
+func retry(ctx context.Context, attempts int, sleep time.Duration, fn func(retryAttempt int) error) error {
 	var err error
 	for i := range attempts {
-		err = fn(i)
-		if err == nil {
-			return nil
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			err = fn(i)
+			if err == nil {
+				return nil
+			}
+			time.Sleep(sleep)
 		}
-		time.Sleep(sleep)
+
 	}
 	return err
 }
