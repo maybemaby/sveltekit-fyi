@@ -134,19 +134,25 @@ func (s *AppStore) MarkScanNSFW(ctx context.Context, domain string) error {
 	return nil
 }
 
+func (s *AppStore) AddScanError(ctx context.Context, domain string, errorMsg string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE scans SET error = ? WHERE domain = ?`, errorMsg, domain)
+	return err
+}
+
 type DomainListing struct {
-	Domain      string  `db:"domain" json:"domain"`
-	FirstSeenAt int     `db:"first_seen_at" json:"first_seen_at"`
-	LastSeenAt  int     `db:"last_seen_at" json:"last_seen_at"`
-	SeenCount   int     `db:"seen_count" json:"seen_count"`
-	Signals     string  `db:"signals" json:"signals"`
-	Title       *string `db:"title" json:"title"`
-	OgImage     *string `db:"og_image" json:"og_image"`
-	Total       int     `db:"total" json:"total"`
+	Domain         string  `db:"domain" json:"domain"`
+	FirstSeenAt    int     `db:"first_seen_at" json:"first_seen_at"`
+	LastSeenAt     int     `db:"last_seen_at" json:"last_seen_at"`
+	SeenCount      int     `db:"seen_count" json:"seen_count"`
+	Signals        string  `db:"signals" json:"signals"`
+	Title          *string `db:"title" json:"title"`
+	OgImage        *string `db:"og_image" json:"og_image"`
+	ScreenshotPath *string `db:"screenshot_path" json:"screenshot_path"`
+	Total          int     `db:"total" json:"total"`
 }
 
 const getTopDomains = `WITH top_domains AS (
-  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image, s.is_nsfw
+  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image, s.is_nsfw, s.screenshot_path
   FROM domains d
   INNER JOIN scans s ON d.domain = s.domain
   WHERE s.is_sk = true AND (s.is_nsfw = 0 OR s.is_nsfw IS NULL)
@@ -154,7 +160,7 @@ const getTopDomains = `WITH top_domains AS (
   SELECT *, COUNT(*) OVER () AS total
   FROM top_domains
 )
-SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total
+SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total, screenshot_path
 FROM counted_domains
 ORDER BY %s
 LIMIT ? OFFSET ?`
@@ -196,6 +202,7 @@ func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offse
 			&listing.Title,
 			&listing.OgImage,
 			&listing.Total,
+			&listing.ScreenshotPath,
 		)
 
 		if err != nil {
@@ -344,4 +351,38 @@ func (s *AppStore) GetSnapshots(ctx context.Context) ([]SiteCountSnapshot, error
 	}
 
 	return snapshots, nil
+}
+
+type ScanToScreenshot struct {
+	Domain         string  `db:"domain" json:"domain"`
+	IsSvelteKit    bool    `db:"is_sk" json:"isSvelteKit"`
+	ScreenshotPath *string `db:"screenshot_path" json:"screenshotPath"`
+}
+
+const getScansToScreenshotQuery = `SELECT domain, is_sk, screenshot_path from scans WHERE is_sk = true AND error IS NULL AND screenshot_path IS NULL AND (og_image IS NULL OR og_image = '') LIMIT 1`
+
+func (s *AppStore) GetScanToScreenshot(ctx context.Context) (ScanToScreenshot, error) {
+	row := s.db.QueryRowContext(ctx, getScansToScreenshotQuery)
+
+	var scan ScanToScreenshot
+
+	err := row.Scan(
+		&scan.Domain,
+		&scan.IsSvelteKit,
+		&scan.ScreenshotPath,
+	)
+
+	if err != nil {
+		return ScanToScreenshot{}, err
+	}
+
+	return scan, nil
+}
+
+const updateScreenshotPathQuery = `UPDATE scans SET screenshot_path = ? WHERE domain = ?`
+
+func (s *AppStore) UpdateScreenshotPath(ctx context.Context, domain string, screenshotPath string) error {
+	_, err := s.db.ExecContext(ctx, updateScreenshotPathQuery, screenshotPath, domain)
+
+	return err
 }

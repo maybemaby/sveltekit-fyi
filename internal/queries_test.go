@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/maybemaby/sveltekit-fyi/internal"
+	"github.com/maybemaby/sveltekit-fyi/internal/assert"
 	_ "modernc.org/sqlite"
 )
 
@@ -145,6 +146,16 @@ func TestGetScanByDomain(t *testing.T) {
 	}
 }
 
+func TestAddScanError(t *testing.T) {
+	db := setupTestDB()
+
+	store := internal.NewAppStore(db)
+
+	err := store.AddScanError(t.Context(), "https://example.com", "Some error occurred")
+
+	assert.Nil(t, err)
+}
+
 func TestMarkScanAsNSFW(t *testing.T) {
 	db := setupTestDB()
 
@@ -203,4 +214,14 @@ func TestGetTopDomains(t *testing.T) {
 	if domains[0].Domain != "https://example.com" {
 		t.Errorf("expected first domain to be https://example.com, got %s", domains[0].Domain)
 	}
+}
+
+func TestUpdateScreenshot(t *testing.T) {
+	db := setupTestDB()
+
+	store := internal.NewAppStore(db)
+
+	err := store.UpdateScreenshotPath(t.Context(), "https://example.com", "/path/to/screenshot.png")
+
+	assert.Nil(t, err)
 }

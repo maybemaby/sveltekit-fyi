@@ -53,6 +53,7 @@ interface DomainListing {
 	signals: string;
 	title: string;
 	og_image: string | null;
+	screenshot_path: string | null;
 	total: number;
 }
 

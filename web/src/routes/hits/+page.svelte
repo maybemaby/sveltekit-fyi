@@ -116,7 +116,7 @@
 				domain={domain.domain}
 				title={domain.title}
 				timeAgo={domain.timeAgo}
-				image={domain.og_image}
+				image={domain.og_image || domain.screenshot_path}
 			/>
 		{/each}
 	</div>
