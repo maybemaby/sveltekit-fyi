@@ -15,33 +15,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func createLogger() *slog.Logger {
-	logLevel := slog.LevelDebug
-
-	envLevel := os.Getenv("LOG_LEVEL")
-
-	switch envLevel {
-	case "DEBUG":
-		logLevel = slog.LevelDebug
-	case "INFO":
-		logLevel = slog.LevelInfo
-	case "WARN":
-		logLevel = slog.LevelWarn
-	case "ERROR":
-		logLevel = slog.LevelError
-	}
+func createLogger(cfg *internal.Config) *slog.Logger {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: logLevel,
+		Level: cfg.LogLevel,
 	}))
 
 	return logger
 }
 
-func runMigrations(ctx context.Context, db *sql.DB) error {
-	runEmbedded := os.Getenv("RUN_MIGRATIONS")
-
-	if runEmbedded == "true" {
+func runMigrations(ctx context.Context, db *sql.DB, cfg *internal.Config) error {
+	if cfg.RunMigrations {
 		return migrations.RunMigrations(ctx, db)
 	}
 
@@ -59,14 +43,14 @@ func loadS3Config() internal.S3Config {
 	}
 }
 
-func setupDb(ctx context.Context) (*sql.DB, error) {
+func setupDb(ctx context.Context, config *internal.Config) (*sql.DB, error) {
 	db, err := internal.ConnectDB(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = runMigrations(ctx, db)
+	err = runMigrations(ctx, db, config)
 
 	if err != nil {
 		return nil, err
@@ -103,14 +87,15 @@ func runJetStream(ctx context.Context, store *internal.AppStore, client *interna
 }
 
 func main() {
-	logger := createLogger()
+	cfg := internal.LoadConfig()
+	logger := createLogger(&cfg)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
 	errGroup, ctx := errgroup.WithContext(ctx)
 
-	db, err := setupDb(ctx)
+	db, err := setupDb(ctx, &cfg)
 
 	if err != nil {
 		logger.Error("failed to set up database", "error", err)
