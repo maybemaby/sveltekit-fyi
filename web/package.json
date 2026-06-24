@@ -21,7 +21,7 @@
 	"devDependencies": {
 		"@eslint/compat": "latest",
 		"@eslint/js": "10.0.1",
-		"@fontsource-variable/geist": "5.2.8",
+		"@fontsource-variable/geist": "5.2.9",
 		"@internationalized/date": "3.12.2",
 		"@lucide/svelte": "1.17.0",
 		"@sveltejs/adapter-cloudflare": "7.2.8",
