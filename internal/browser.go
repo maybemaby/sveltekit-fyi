@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+var ErrRateLimit = errors.New("too many requests")
+
 type BrowserRenderer interface {
 	Capture(ctx context.Context, url string) (io.Reader, error)
 }
@@ -85,6 +87,9 @@ func (r *CloudflareRenderer) Capture(ctx context.Context, url string) (io.Reader
 	defer res.Body.Close()
 
 	if res.StatusCode >= 300 {
+		if res.StatusCode == 429 {
+			return nil, ErrRateLimit
+		}
 		return nil, fmt.Errorf("unexpected status code %d", res.StatusCode)
 	}
 
