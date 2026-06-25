@@ -62,3 +62,43 @@ func TestRetryContextCancelled(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, attemptCount, 2)
 }
+
+func TestRetryExitEarly(t *testing.T) {
+	attempts := 3
+	sleep := 10 * time.Millisecond
+
+	attemptCount := 0
+
+	err := retry(t.Context(), attempts, sleep, func(retryAttempt int) error {
+		attemptCount++
+
+		if attemptCount == 2 {
+			return ErrExitEarly
+		}
+
+		return errors.New("error")
+	})
+
+	assert.ErrorIs(t, err, ErrExitEarly)
+	assert.Equal(t, attemptCount, 2)
+}
+
+func TestRetryExitEarlyJoined(t *testing.T) {
+	attempts := 3
+	sleep := 10 * time.Millisecond
+
+	attemptCount := 0
+
+	err := retry(t.Context(), attempts, sleep, func(retryAttempt int) error {
+		attemptCount++
+
+		if attemptCount == 2 {
+			return errors.Join(errors.New("some error"), ErrExitEarly)
+		}
+
+		return errors.New("error")
+	})
+
+	assert.ErrorIs(t, err, ErrExitEarly)
+	assert.Equal(t, attemptCount, 2)
+}

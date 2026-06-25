@@ -2,6 +2,8 @@ package internal
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -49,6 +51,13 @@ func (s *ScreenshotService) Run(ctx context.Context) error {
 			err := s.runLoop(ctx)
 
 			if err != nil {
+
+				// May run into a situation where there are no scans to screenshot, just wait for the next interval
+				// Also, if we hit a rate limit, we should just wait for the next interval to try again
+				if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrRateLimit) {
+					continue
+				}
+
 				return err
 			}
 		case <-ctx.Done():
@@ -82,6 +91,11 @@ func (s *ScreenshotService) runLoop(ctx context.Context) error {
 		screenshot, err := s.renderer.Capture(ctx, scan.Domain)
 
 		if err != nil {
+
+			if errors.Is(err, ErrRateLimit) {
+				return errors.Join(err, ErrExitEarly)
+			}
+
 			return err
 		}
 
@@ -112,12 +126,23 @@ func (s *ScreenshotService) runLoop(ctx context.Context) error {
 
 	if err != nil {
 		s.logger.Error("failed to capture screenshot", "domain", scan.Domain, "error", err)
-		// Save the error to the database so we don't keep trying to capture a screenshot for this domain
-		saveErr := s.appStore.AddScanError(ctx, scan.Domain, err.Error())
 
-		if saveErr != nil {
-			return saveErr
-		}
+		return handleRetryError(err, scan.Domain, s.appStore)
+	}
+
+	return nil
+}
+
+func handleRetryError(err error, domain string, appStore *AppStore) error {
+
+	if errors.Is(err, ErrRateLimit) {
+		return err
+	}
+
+	saveErr := appStore.AddScanError(context.Background(), domain, err.Error())
+
+	if saveErr != nil {
+		return saveErr
 	}
 
 	return nil
