@@ -24,7 +24,7 @@ func getLatestSnapshotTime(ctx context.Context, db *sql.DB) (time.Time, error) {
 	return time.Unix(snapshotAt, 0), nil
 }
 
-const insertSnapshotQuery = `INSERT INTO site_count (snapshot_at, sk_count, total_scans, total_observed) VALUES (?, ?, ?, ?)`
+const insertSnapshotQuery = `INSERT INTO site_count (snapshot_at, sk_count, svelte_count, total_scans, total_observed) VALUES (?, ?, ?, ?, ?)`
 
 func takeSnapshot(ctx context.Context, db *sql.DB) error {
 
@@ -33,6 +33,7 @@ func takeSnapshot(ctx context.Context, db *sql.DB) error {
 
 	err := row.Scan(
 		&scanStats.ConfirmedSites,
+		&scanStats.SvelteOnlySites,
 		&scanStats.TotalScans,
 		&scanStats.TotalObserved,
 	)
@@ -41,7 +42,7 @@ func takeSnapshot(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	_, err = db.ExecContext(ctx, insertSnapshotQuery, time.Now().Unix(), scanStats.ConfirmedSites, scanStats.TotalScans, scanStats.TotalObserved)
+	_, err = db.ExecContext(ctx, insertSnapshotQuery, time.Now().Unix(), scanStats.ConfirmedSites, scanStats.SvelteOnlySites, scanStats.TotalScans, scanStats.TotalObserved)
 
 	if err != nil {
 		return err

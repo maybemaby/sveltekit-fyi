@@ -55,6 +55,8 @@ interface DomainListing {
 	og_image: string | null;
 	screenshot_path: string | null;
 	total: number;
+	is_svelte: boolean | null;
+	is_sk: boolean;
 }
 
 interface SiteCountSnapshot {
