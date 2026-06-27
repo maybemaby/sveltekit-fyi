@@ -313,7 +313,7 @@ func TestDetectSvelte(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := detectSvelte(strings.NewReader(tt.src))
+			got := DetectSvelte(strings.NewReader(tt.src))
 			assert.True(t, got)
 		})
 	}

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS scans (
   domain          TEXT PRIMARY KEY,
   scanned_at      INTEGER NOT NULL,
   is_sk         INTEGER NOT NULL,
+  is_svelte       INTEGER,
   confidence      INTEGER NOT NULL,
   signals         TEXT NOT NULL,
   final_url       TEXT,

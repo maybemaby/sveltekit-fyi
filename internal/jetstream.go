@@ -170,7 +170,7 @@ func createHostRequest(ctx context.Context, host string) (*http.Request, error) 
 
 	req.Header.Set("accept-language", "en")
 	req.Header.Set("accept", "text/html,application/xhtml+xml")
-	req.Header.Set("user-agent", "Mozilla/5.0 (compatible; SvelteKit-FYI/1.0; +https://brandma.dev)")
+	req.Header.Set("user-agent", USER_AGENT)
 
 	return req, nil
 }
@@ -219,8 +219,9 @@ func trySaveImage(ctx context.Context, s3Client *S3Client, imageURL string, base
 
 func saveErrorScan(ctx context.Context, store *AppStore, scan errorScan) error {
 	return store.SaveScan(ctx, &Scan{
-		Domain:         scan.host,
-		ScannedAt:      int(time.Now().UnixMilli()),
+		Domain:    scan.host,
+		ScannedAt: int(time.Now().UnixMilli()),
+
 		IsSvelteKit:    false,
 		Confidence:     0,
 		Signals:        "",
@@ -447,6 +448,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context) error {
 					fmt.Printf("failed to close response body for url %s after probe: %v\n", host, err)
 				}
 
+				isSvelte := false
 				isSvelteKit := selector != ""
 				var title string
 				var key string
@@ -456,6 +458,7 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context) error {
 				if isSvelteKit {
 					p.logger.Info("URL appears to be a SvelteKit app", "host", host)
 
+					isSvelte = true
 					title = probeTitle(doc)
 					description := probeDescription(doc)
 
@@ -483,12 +486,17 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context) error {
 					}
 				} else {
 					p.logger.Debug("host does not appear to be a sveltekit app", "host", host)
+
+					isSvelte = CheckSvelteForUrl(ctx, httpClient, doc, req.URL)
 				}
+
+				p.logger.Debug("svelte check", "isSvelte", isSvelte)
 
 				err = p.store.SaveScan(ctx, &Scan{
 					Domain:         host,
 					ScannedAt:      int(time.Now().UnixMilli()),
 					IsSvelteKit:    isSvelteKit,
+					IsSvelte:       &isSvelte,
 					Confidence:     10, // placeholder
 					Signals:        selector,
 					FinalURL:       nil,

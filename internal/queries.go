@@ -36,12 +36,15 @@ func (s *AppStore) AddDomainSeen(ctx context.Context, domain string) error {
 	return err
 }
 
-const getScanByDomain = `SELECT * FROM scans WHERE domain = ?`
+const getScanByDomain = `SELECT domain, scanned_at, is_sk, is_svelte, confidence, signals,
+final_url, title, error, screenshot_path, og_image, redirected_to, is_nsfw
+FROM scans WHERE domain = ?`
 
 type Scan struct {
 	Domain         string  `db:"domain"`
 	ScannedAt      int     `db:"scanned_at"`
 	IsSvelteKit    bool    `db:"is_sk"`
+	IsSvelte       *bool   `db:"is_svelte"`
 	Confidence     int     `db:"confidence"`
 	Signals        string  `db:"signals"`
 	FinalURL       *string `db:"final_url"`
@@ -62,6 +65,7 @@ func (s *AppStore) GetScanByDomain(ctx context.Context, domain string) (*Scan, e
 		&scan.Domain,
 		&scan.ScannedAt,
 		&scan.IsSvelteKit,
+		&scan.IsSvelte,
 		&scan.Confidence,
 		&scan.Signals,
 		&scan.FinalURL,
@@ -80,8 +84,8 @@ func (s *AppStore) GetScanByDomain(ctx context.Context, domain string) (*Scan, e
 	return &scan, nil
 }
 
-const upsertScan = `INSERT INTO scans (domain, scanned_at, is_sk, confidence, signals, final_url, title, error, screenshot_path, og_image, redirected_to, is_nsfw)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const upsertScan = `INSERT INTO scans (domain, scanned_at, is_sk, is_svelte, confidence, signals, final_url, title, error, screenshot_path, og_image, redirected_to, is_nsfw)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (domain) DO UPDATE SET
 scanned_at = EXCLUDED.scanned_at,
 is_sk = EXCLUDED.is_sk,
@@ -100,6 +104,7 @@ func (s *AppStore) SaveScan(ctx context.Context, scan *Scan) error {
 		scan.Domain,
 		scan.ScannedAt,
 		scan.IsSvelteKit,
+		scan.IsSvelte,
 		scan.Confidence,
 		scan.Signals,
 		scan.FinalURL,
@@ -149,18 +154,20 @@ type DomainListing struct {
 	OgImage        *string `db:"og_image" json:"og_image"`
 	ScreenshotPath *string `db:"screenshot_path" json:"screenshot_path"`
 	Total          int     `db:"total" json:"total"`
+	IsSvelte       *bool   `db:"is_svelte" json:"is_svelte"`
+	IsSvelteKit    bool    `db:"is_sk" json:"is_sk"`
 }
 
 const getTopDomains = `WITH top_domains AS (
-  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image, s.is_nsfw, s.screenshot_path
+  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image, s.is_nsfw, s.screenshot_path, s.is_svelte, s.is_sk
   FROM domains d
   INNER JOIN scans s ON d.domain = s.domain
-  WHERE s.is_sk = true AND (s.is_nsfw = 0 OR s.is_nsfw IS NULL)
+  WHERE (s.is_sk = true OR s.is_svelte = true) AND (s.is_nsfw = 0 OR s.is_nsfw IS NULL)
 ), counted_domains AS (
   SELECT *, COUNT(*) OVER () AS total
   FROM top_domains
 )
-SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total, screenshot_path
+SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total, screenshot_path, is_svelte, is_sk
 FROM counted_domains
 ORDER BY %s
 LIMIT ? OFFSET ?`
@@ -203,6 +210,8 @@ func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offse
 			&listing.OgImage,
 			&listing.Total,
 			&listing.ScreenshotPath,
+			&listing.IsSvelte,
+			&listing.IsSvelteKit,
 		)
 
 		if err != nil {
@@ -216,12 +225,14 @@ func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offse
 }
 
 type ScanStats struct {
-	ConfirmedSites int `db:"confirmed_sites" json:"confirmedSites"`
-	TotalScans     int `db:"total_scans" json:"totalScans"`
-	TotalObserved  int `db:"total_observed" json:"totalObserved"`
+	ConfirmedSites  int `db:"confirmed_sites" json:"confirmedSites"`
+	SvelteOnlySites int `db:"svelte_only_sites" json:"svelteOnlySites"`
+	TotalScans      int `db:"total_scans" json:"totalScans"`
+	TotalObserved   int `db:"total_observed" json:"totalObserved"`
 }
 
 const getStatsQuery = `SELECT (SELECT COUNT(*) FROM scans WHERE is_sk = true) AS confirmed_sites,
+(SELECT COUNT(*) FROM scans WHERE is_sk = false AND is_svelte = true) AS svelte_only_sites,
 (SELECT COUNT(domain) FROM scans) AS total_scans,
 (SELECT COUNT(domain) FROM domains) AS total_observed
 `
@@ -233,6 +244,7 @@ func (s *AppStore) getScanStats(ctx context.Context) (ScanStats, error) {
 
 	err := row.Scan(
 		&stats.ConfirmedSites,
+		&stats.SvelteOnlySites,
 		&stats.TotalScans,
 		&stats.TotalObserved,
 	)
