@@ -2,10 +2,12 @@ package internal
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/maybemaby/sveltekit-fyi/internal/assert"
 )
 
 func TestSveltekitOk(t *testing.T) {
@@ -232,6 +234,87 @@ func TestGetDescription(t *testing.T) {
 			if description != tt.want {
 				t.Fatalf("expected description to be %s, but got %s\n", tt.want, description)
 			}
+		})
+	}
+
+}
+
+func mustParseUrl(rawurl string) *url.URL {
+	parsedUrl, err := url.Parse(rawurl)
+	if err != nil {
+		panic(err)
+	}
+	return parsedUrl
+}
+
+func TestResolveUrl(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		baseUrl     string
+		relativeUrl string
+		want        string
+	}{
+		{
+			name:        "absolute url",
+			baseUrl:     "https://example.com",
+			relativeUrl: "https://example.com/path/to/resource",
+			want:        "https://example.com/path/to/resource",
+		},
+		{
+			name:        "relative url",
+			baseUrl:     "https://example.com",
+			relativeUrl: "/path/to/resource",
+			want:        "https://example.com/path/to/resource",
+		},
+		{
+			name:        "relative url with query string",
+			baseUrl:     "https://example.com",
+			relativeUrl: "/path/to/resource?foo=bar",
+			want:        "https://example.com/path/to/resource?foo=bar",
+		},
+		{
+			name:        "parent directory",
+			baseUrl:     "https://example.com/path/to",
+			relativeUrl: "../resource",
+			want:        "https://example.com/path/resource",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolvedUrl, err := resolveRelativeUrl(mustParseUrl(tt.baseUrl), tt.relativeUrl)
+
+			if err != nil {
+				t.Fatalf("failed to resolve url: %v\n", err)
+			}
+
+			assert.Equal(t, resolvedUrl.String(), tt.want)
+		})
+	}
+}
+
+func TestDetectSvelte(t *testing.T) {
+
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "svelte version",
+			src:  `((window.__svelte ??= {}).v ??= new Set()).add(PUBLIC_VERSION);}`,
+		},
+		{
+			name: "svelte uid",
+			src:  `(window.__svelte ??= {}).uid ??= 1`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectSvelte(strings.NewReader(tt.src))
+			assert.True(t, got)
 		})
 	}
 
