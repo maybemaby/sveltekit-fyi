@@ -41,7 +41,7 @@ func (s *ScreenshotService) Run(ctx context.Context) error {
 	// First run immediately, then run on the interval
 	err := s.runLoop(ctx)
 
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 
