@@ -3,6 +3,7 @@ package internal
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -17,7 +19,13 @@ import (
 )
 
 var USER_AGENT = "Mozilla/5.0 (compatible; SvelteKit-FYI/1.0; +https://sveltekit.fyi)"
+var CHUNKS_LIMIT = 5
 var svelteWindowRegex = regexp.MustCompile(`(?i)window\.__svelte\s*\?\?=\s*{}`)
+var chunkScoring = []chunkScore{
+	{regex: regexp.MustCompile(`(?i)(main|index|entry|index)[.-][a-z0-9]+\.m?js`), score: 40},
+	{regex: regexp.MustCompile(`(?i)(main|index|entry|index)\.m?js`), score: 30},
+	{regex: regexp.MustCompile(`(?i)\/assets[\/\.\-].*\.m?js`), score: 10},
+}
 
 var querySelectors = []string{
 	"[data-sveltekit-preload-data]",
@@ -25,6 +33,11 @@ var querySelectors = []string{
 	"script[data-sveltekit-async-loader]",
 	`[data-svelte-h^="svelte-"]`,
 	"div#svelte-announcer",
+}
+
+type chunkScore struct {
+	regex *regexp.Regexp
+	score int
 }
 
 func probeHTML(doc *goquery.Document) (string, error) {
@@ -140,6 +153,41 @@ func DetectSvelte(src io.Reader) bool {
 	return false
 }
 
+func sortEntriesByScore(entries []string) []string {
+	type scoredEntry struct {
+		url   string
+		score int
+	}
+
+	var scoredEntries []scoredEntry
+
+	for _, entry := range entries {
+		score := 0
+
+		for _, cs := range chunkScoring {
+			if cs.regex.MatchString(entry) {
+				score = max(score, cs.score)
+			}
+		}
+
+		scoredEntries = append(scoredEntries, scoredEntry{url: entry, score: score})
+	}
+
+	slices.SortFunc(scoredEntries, func(a, b scoredEntry) int {
+		return cmp.Compare(a.score, b.score)
+	})
+
+	slices.Reverse(scoredEntries)
+
+	var sortedEntries []string
+
+	for _, se := range scoredEntries {
+		sortedEntries = append(sortedEntries, se.url)
+	}
+
+	return sortedEntries
+}
+
 func ProbeEntryUrls(doc *goquery.Document, pageUrl *url.URL) []string {
 	var urls []string
 
@@ -166,8 +214,10 @@ func ProbeEntryUrls(doc *goquery.Document, pageUrl *url.URL) []string {
 	})
 
 	// How to rank urls by likelihood of having window.__svelte?
+	sortedEntries := sortEntriesByScore(urls)
+	topEntries := sortedEntries[:min(len(sortedEntries), CHUNKS_LIMIT)]
 
-	return urls
+	return topEntries
 }
 
 func CollectChunks(ctx context.Context, c *http.Client, urls []string) [][]byte {

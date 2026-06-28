@@ -319,3 +319,23 @@ func TestDetectSvelte(t *testing.T) {
 	}
 
 }
+
+func TestSortEntriesByScore(t *testing.T) {
+	urls := []string{
+		"https://static.example.com/assets/main.js",
+		"https://static.example.com/assets/main.asd123.js",
+		"https://static.example.com/assets/svelte.js",
+		"https://static.example.com/somewhat/random.js",
+	}
+
+	sortedUrls := sortEntriesByScore(urls)
+
+	expectedOrder := []string{
+		"https://static.example.com/assets/main.asd123.js",
+		"https://static.example.com/assets/main.js",
+		"https://static.example.com/assets/svelte.js",
+		"https://static.example.com/somewhat/random.js",
+	}
+
+	assert.Equal(t, expectedOrder, sortedUrls)
+}
