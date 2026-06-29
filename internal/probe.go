@@ -127,6 +127,16 @@ func resolveRelativeUrl(baseUrl *url.URL, relativeUrl string) (*url.URL, error) 
 	return resolvedUrl, nil
 }
 
+func resolveParentDomain(host string) string {
+	parts := strings.Split(host, ".")
+
+	if len(parts) < 2 {
+		return host
+	}
+
+	return strings.Join(parts[len(parts)-2:], ".")
+}
+
 func DetectSvelte(src io.Reader) bool {
 	// Limit data read to 1.5MB to avoid reading too much data from large files
 	limitReader := io.LimitReader(src, 1024*1024*1.5)
@@ -190,13 +200,17 @@ func sortEntriesByScore(entries []string) []string {
 
 func ProbeEntryUrls(doc *goquery.Document, pageUrl *url.URL) []string {
 	var urls []string
+	parentDomain := resolveParentDomain(pageUrl.Host)
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		src, exists := s.Attr("src")
 
 		if exists && strings.HasSuffix(src, ".js") {
 			resolvedUrl, err := resolveRelativeUrl(pageUrl, src)
-			if err == nil && (resolvedUrl.Scheme == "http" || resolvedUrl.Scheme == "https") {
+
+			// Ignore scripts that are not on the same top level domain, too many third party scripts.
+			// Care more about capturing sites intentionally using Svelte.
+			if err == nil && (resolvedUrl.Scheme == "http" || resolvedUrl.Scheme == "https") && parentDomain == resolveParentDomain(resolvedUrl.Host) {
 				urls = append(urls, resolvedUrl.String())
 			}
 		}
@@ -207,13 +221,12 @@ func ProbeEntryUrls(doc *goquery.Document, pageUrl *url.URL) []string {
 
 		if exists && strings.HasSuffix(href, ".js") {
 			resolvedUrl, err := resolveRelativeUrl(pageUrl, href)
-			if err == nil && (resolvedUrl.Scheme == "http" || resolvedUrl.Scheme == "https") {
+			if err == nil && (resolvedUrl.Scheme == "http" || resolvedUrl.Scheme == "https") && parentDomain == resolveParentDomain(resolvedUrl.Host) {
 				urls = append(urls, resolvedUrl.String())
 			}
 		}
 	})
 
-	// How to rank urls by likelihood of having window.__svelte?
 	sortedEntries := sortEntriesByScore(urls)
 	topEntries := sortedEntries[:min(len(sortedEntries), CHUNKS_LIMIT)]
 

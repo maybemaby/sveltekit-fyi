@@ -280,6 +280,12 @@ func TestResolveUrl(t *testing.T) {
 			relativeUrl: "../resource",
 			want:        "https://example.com/path/resource",
 		},
+		{
+			name: "different domain",
+			baseUrl:     "https://example.com",
+			relativeUrl: "https://otherdomain.com/path/to/resource",
+			want:        "https://otherdomain.com/path/to/resource",
+		},
 	}
 
 	for _, tt := range tests {
