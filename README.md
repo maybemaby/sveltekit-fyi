@@ -1,6 +1,6 @@
 # sveltekit.fyi
 
-Inspired by [nuxt.fyi](https://nuxt.fyi/), this is a project to scan Bluesky's firehose for sites made with Sveltekit.
+Inspired by [nuxt.fyi](https://nuxt.fyi/), this is a project to scan Bluesky's firehose for sites made with Sveltekit and Svelte.
 
 ## Development
 
