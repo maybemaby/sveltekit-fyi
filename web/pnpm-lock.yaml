@@ -21,8 +21,8 @@ importers:
         specifier: 3.12.2
         version: 3.12.2
       '@lucide/svelte':
-        specifier: 1.17.0
-        version: 1.17.0(svelte@5.56.4(@typescript-eslint/types@8.59.0))
+        specifier: 1.21.0
+        version: 1.21.0(svelte@5.56.4(@typescript-eslint/types@8.59.0))
       '@sveltejs/adapter-cloudflare':
         specifier: 7.2.8
         version: 7.2.8(@sveltejs/kit@2.61.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.4(@typescript-eslint/types@8.59.0))(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)))(svelte@5.56.4(@typescript-eslint/types@8.59.0))(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)))(wrangler@4.100.0(@cloudflare/workers-types@4.20260611.1))
@@ -766,8 +766,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
-  '@lucide/svelte@1.17.0':
-    resolution: {integrity: sha512-q06YCFBN5CO8cd1ADmLCxWRVMVb7xxvHzqC0lvNoxGa+FLW6Cd1Y1AOxgbQk4Iwe68vkAMCRveNHint4WoaVKg==}
+  '@lucide/svelte@1.21.0':
+    resolution: {integrity: sha512-MEv//A7Jv3kHukZowv/DWp1MAtUzJKYwtJsmnQ7X98lCgtac3z3NbaToDl3Q6jO3gS9sougFpcD+t+YuxOkRMw==}
     peerDependencies:
       svelte: ^5
 
@@ -2795,7 +2795,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@lucide/svelte@1.17.0(svelte@5.56.4(@typescript-eslint/types@8.59.0))':
+  '@lucide/svelte@1.21.0(svelte@5.56.4(@typescript-eslint/types@8.59.0))':
     dependencies:
       svelte: 5.56.4(@typescript-eslint/types@8.59.0)
 
