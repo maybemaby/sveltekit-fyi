@@ -35,7 +35,14 @@
 	<div class="aspect-1280/800 border-b relative">
 		{#if image}
 			<div class="absolute inset-0">
-				<img {src} alt={title} class="object-cover w-full h-full" />
+				<img
+					loading="lazy"
+					{src}
+					alt={title}
+					class="object-cover w-full h-full"
+					width="580"
+					height="360"
+				/>
 			</div>
 		{:else}
 			<div class="flex items-center justify-center w-full h-full text-sm text-muted-foreground">
