@@ -8,3 +8,4 @@ og/*
 .DS_Store
 bin/
 playground/
+*.callgraph.out

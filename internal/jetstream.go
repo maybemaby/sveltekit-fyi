@@ -22,6 +22,7 @@ import (
 var rescanInterval = 30 * 24 * time.Hour
 var jetstreamUrl = "wss://jetstream2.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
 var nsfwRegex = regexp.MustCompile(`(?i)(porn|nsfw|xxx|hentai)`)
+var urlRegex = regexp.MustCompile("(?i)\\bhttps?://[^\\s<>\"'`)]+")
 
 // Popular domains that are frequently linked in posts but are unlikely to be SvelteKit apps, so we can skip scanning them
 var ignoreDomains = map[string]struct{}{
@@ -124,7 +125,6 @@ func (p *JetStreamProcessor) SetLogger(logger *slog.Logger) {
 
 func extract_urls(event *JetstreamEvent) map[string]struct{} {
 	urls := map[string]struct{}{}
-	urlRegex := regexp.MustCompile("(?i)\\bhttps?://[^\\s<>\"'`)]+")
 
 	if event.Commit.Record.Text == "" {
 		return urls
