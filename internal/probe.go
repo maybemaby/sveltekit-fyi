@@ -235,8 +235,8 @@ func ProbeEntryUrls(doc *goquery.Document, pageUrl *url.URL) []string {
 
 func CollectChunks(ctx context.Context, c *http.Client, urls []string) [][]byte {
 	var chunks [][]byte
-
-	wg := sync.WaitGroup{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
 	for _, url := range urls {
 		wg.Go(func() {
@@ -271,7 +271,9 @@ func CollectChunks(ctx context.Context, c *http.Client, urls []string) [][]byte 
 				return
 			}
 
+			mu.Lock()
 			chunks = append(chunks, chunk)
+			mu.Unlock()
 		})
 	}
 

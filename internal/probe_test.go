@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -9,6 +11,49 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/maybemaby/sveltekit-fyi/internal/assert"
 )
+
+func TestCollectChunks(t *testing.T) {
+	t.Parallel()
+
+	chunks := map[string]string{
+		"/chunk1.js": "console.log('chunk1');",
+		"/chunk2.js": "console.log('chunk2');",
+		"/chunk3.js": "console.log('chunk3');",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if content, ok := chunks[r.URL.Path]; ok {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(content))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	var urls []string
+	for path := range chunks {
+		urls = append(urls, server.URL+path)
+	}
+
+	collected := CollectChunks(context.Background(), http.DefaultClient, urls)
+
+	assert.Equal(t, len(collected), len(chunks))
+
+	// Verify all chunks are present
+	for path, content := range chunks {
+		found := false
+		for _, c := range collected {
+			if string(c) == content {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("chunk %s with content %s not found in collected chunks", path, content)
+		}
+	}
+}
 
 func TestSveltekitOk(t *testing.T) {
 	url := "https://svelte.dev/"
@@ -276,12 +321,12 @@ func TestResolveUrl(t *testing.T) {
 		},
 		{
 			name:        "parent directory",
-			baseUrl:     "https://example.com/path/to",
+			baseUrl:     "https://example.com/path/to/",
 			relativeUrl: "../resource",
 			want:        "https://example.com/path/resource",
 		},
 		{
-			name: "different domain",
+			name:        "different domain",
 			baseUrl:     "https://example.com",
 			relativeUrl: "https://otherdomain.com/path/to/resource",
 			want:        "https://otherdomain.com/path/to/resource",
