@@ -472,7 +472,13 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context) error {
 						nsfw = &detectedNsfw
 						p.logger.Info("content appears to be NSFW based on description", "host", host)
 					}
+				} else {
+					p.logger.Debug("host does not appear to be a sveltekit app", "host", host)
 
+					isSvelte = CheckSvelteForUrl(ctx, httpClient, doc, req.URL)
+				}
+
+				if isSvelte || isSvelteKit {
 					ogImage := probeOgImage(doc)
 
 					if ogImage != "" {
@@ -484,10 +490,6 @@ func (p *JetStreamProcessor) ProcessEvents(ctx context.Context) error {
 							p.logger.Error("failed to save og image for url", "host", host, "og_image", ogImage, "error", err)
 						}
 					}
-				} else {
-					p.logger.Debug("host does not appear to be a sveltekit app", "host", host)
-
-					isSvelte = CheckSvelteForUrl(ctx, httpClient, doc, req.URL)
 				}
 
 				p.logger.Debug("svelte check", "isSvelte", isSvelte)

@@ -371,7 +371,7 @@ type ScanToScreenshot struct {
 	ScreenshotPath *string `db:"screenshot_path" json:"screenshotPath"`
 }
 
-const getScansToScreenshotQuery = `SELECT domain, is_sk, screenshot_path from scans WHERE is_sk = true AND error IS NULL AND screenshot_path IS NULL AND (og_image IS NULL OR og_image = '') LIMIT 1`
+const getScansToScreenshotQuery = `SELECT domain, is_sk, screenshot_path from scans WHERE (is_sk = true OR is_svelte = true) AND error IS NULL AND screenshot_path IS NULL AND (og_image IS NULL OR og_image = '') LIMIT 1`
 
 func (s *AppStore) GetScanToScreenshot(ctx context.Context) (ScanToScreenshot, error) {
 	row := s.db.QueryRowContext(ctx, getScansToScreenshotQuery)
