@@ -323,12 +323,13 @@ func (s *AppStore) GetStats(ctx context.Context) (CombinedStats, error) {
 
 type SiteCountSnapshot struct {
 	SnapshotAt     int `db:"snapshot_at" json:"snapshotAt"`
-	ConfirmedSites int `db:"sk_count" json:"confirmedSites"`
+	KitCount int `db:"sk_count" json:"kitCount"`
 	TotalScans     int `db:"total_scans" json:"totalScans"`
 	TotalObserved  int `db:"total_observed" json:"totalObserved"`
+	SvelteCount    int `db:"svelte_count" json:"svelteCount"`
 }
 
-const getSnapshotsQuery = `SELECT snapshot_at, sk_count, total_scans, total_observed
+const getSnapshotsQuery = `SELECT snapshot_at, sk_count, total_scans, total_observed, coalesce(svelte_count, 0) as svelte_count
 FROM site_count
 ORDER BY snapshot_at ASC
 LIMIT 365
@@ -350,9 +351,10 @@ func (s *AppStore) GetSnapshots(ctx context.Context) ([]SiteCountSnapshot, error
 
 		err := rows.Scan(
 			&snapshot.SnapshotAt,
-			&snapshot.ConfirmedSites,
+			&snapshot.KitCount,
 			&snapshot.TotalScans,
 			&snapshot.TotalObserved,
+			&snapshot.SvelteCount,
 		)
 
 		if err != nil {

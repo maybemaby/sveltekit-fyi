@@ -25,6 +25,7 @@
 	<h1 class="mb-4 text-2xl font-semibold">Overview</h1>
 	<div class="grid md:grid-cols-3 gap-2 mb-4">
 		<StatBox count={stats.scans.confirmedSites} caption="Confirmed Sveltekit Sites" />
+		<StatBox count={stats.scans.svelteOnlySites} caption="Svelte Only Sites" />
 		<StatBox count={stats.scans.totalScans} caption="Domains Scanned" />
 		<StatBox count={stats.scans.totalObserved} caption="Domains Observed" />
 	</div>
@@ -32,7 +33,7 @@
 	<div class="mb-4">
 		<h2 class="mb-4 text-xl font-semibold">SvelteKit Sites Detected Over Time</h2>
 		<Plot y={{ grid: true, label: false }} x={{ label: 'Time', type: 'utc' }} marginTop={20}>
-			<Line lineClass="text-primary" data={utcSnapshots} x="snapshotAt" y="confirmedSites" />
+			<Line lineClass="text-primary" data={utcSnapshots} x="snapshotAt" y="kitCount" />
 		</Plot>
 	</div>
 

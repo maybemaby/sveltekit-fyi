@@ -33,6 +33,7 @@ interface ScanStats {
 	confirmedSites: number;
 	totalScans: number;
 	totalObserved: number;
+	svelteOnlySites: number;
 }
 
 interface SignalCount {
@@ -61,9 +62,10 @@ interface DomainListing {
 
 interface SiteCountSnapshot {
 	snapshotAt: number;
-	confirmedSites: number;
+	kitCount: number;
 	totalScans: number;
 	totalObserved: number;
+	svelteCount: number;
 }
 
 type ClientFetchOptions = Omit<Parameters<typeof fetch>[1], 'method' | 'body'>;
