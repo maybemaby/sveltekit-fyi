@@ -35,6 +35,10 @@
 		<Plot y={{ grid: true, label: false }} x={{ label: 'Time', type: 'utc' }} marginTop={20}>
 			<Line lineClass="text-primary" data={utcSnapshots} x="snapshotAt" y="kitCount" />
 		</Plot>
+		<h2 class="mb-4 text-xl font-semibold">Svelte Only Sites Detected Over Time</h2>
+		<Plot y={{ grid: true, label: false }} x={{ label: 'Time', type: 'utc' }} marginTop={20}>
+			<Line lineClass="text-primary" data={utcSnapshots} x="snapshotAt" y="svelteCount" />
+		</Plot>
 	</div>
 
 	<h2 class="text-xl font-semibold mb-2">Signals used to detect Sveltekit</h2>
