@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -87,11 +88,29 @@ func runJetStream(ctx context.Context, store *internal.AppStore, client *interna
 }
 
 func main() {
+	otelTracing := flag.Bool("otel-tracing", false, "enable OpenTelemetry tracing")
+	flag.Parse()
+
 	cfg := internal.LoadConfig()
+	cfg.OTelTracing = *otelTracing
 	logger := createLogger(&cfg)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+
+	shutdownTracing, err := internal.SetupTracing(ctx, cfg.OTelTracing)
+	if err != nil {
+		logger.Error("failed to set up tracing", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := shutdownTracing(shutdownCtx); err != nil {
+			logger.Error("failed to shut down tracing", "error", err)
+		}
+	}()
 
 	errGroup, ctx := errgroup.WithContext(ctx)
 
@@ -121,7 +140,7 @@ func main() {
 	})
 
 	errGroup.Go(func() error {
-		server := internal.NewServer(ctx, logger)
+		server := internal.NewServer(ctx, logger, cfg.OTelTracing)
 
 		finished := make(chan struct{})
 

@@ -11,6 +11,7 @@ type Config struct {
 	CloudflareAPIKey    string
 	LogLevel            slog.Leveler
 	RunMigrations       bool
+	OTelTracing         bool
 }
 
 func LoadConfig() Config {
