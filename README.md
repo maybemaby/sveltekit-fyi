@@ -18,6 +18,14 @@ mise r dev
 - Node 22+
 - Go 1.25.7+
 
+### Tracing
+
+OpenTelemetry tracing is disabled by default. Enable it with the `-otel-tracing` flag and set an OTLP/HTTP endpoint:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 go run main.go -otel-tracing
+```
+
 
 ## Detectors
 

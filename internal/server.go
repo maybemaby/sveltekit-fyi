@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type Server struct {
@@ -16,13 +18,14 @@ type Server struct {
 	store    *AppStore
 	logger   *slog.Logger
 	adminKey string
+	tracing  bool
 }
 
 type MarkNSFWRequest struct {
 	Domain string `json:"domain"`
 }
 
-func NewServer(ctx context.Context, logger *slog.Logger) *Server {
+func NewServer(ctx context.Context, logger *slog.Logger, tracingEnabled bool) *Server {
 	srv := &http.Server{
 		Addr: ":8000",
 	}
@@ -41,6 +44,7 @@ func NewServer(ctx context.Context, logger *slog.Logger) *Server {
 		store:    store,
 		logger:   logger.WithGroup("server"),
 		adminKey: os.Getenv("ADMIN_KEY"),
+		tracing:  tracingEnabled,
 	}
 }
 
@@ -159,6 +163,11 @@ func (s *Server) mountRoutes() {
 	})
 
 	s.srv.Handler = mux
+
+	if s.tracing {
+		s.logger.Info("tracing enabled")
+		s.srv.Handler = otelhttp.NewHandler(mux, "sveltekit-fyi")
+	}
 }
 
 func (s *Server) Start() error {

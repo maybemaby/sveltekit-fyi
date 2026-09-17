@@ -4,7 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
+
+var queryTracer = otel.Tracer("github.com/maybemaby/sveltekit-fyi/internal")
 
 func errDeferLog(callback func() error, msg string) {
 	err := callback()
@@ -173,6 +180,14 @@ ORDER BY %s
 LIMIT ? OFFSET ?`
 
 func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offset int) ([]DomainListing, error) {
+	ctx, span := queryTracer.Start(ctx, "db.query get_top_domains", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("db.system", "sqlite"),
+		attribute.String("db.operation.name", "SELECT"),
+		attribute.Int("db.limit", limit),
+		attribute.Int("db.offset", offset),
+	)
 
 	ordering := map[string]string{
 		"seen_at":    "first_seen_at DESC",
@@ -190,6 +205,8 @@ func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offse
 	rows, err := s.db.QueryContext(ctx, query, limit, offset)
 
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "database query failed")
 		return nil, err
 	}
 
@@ -215,10 +232,18 @@ func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offse
 		)
 
 		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "database row scan failed")
 			return nil, err
 		}
 
 		listings = append(listings, listing)
+	}
+
+	if err := rows.Err(); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "database rows failed")
+		return nil, err
 	}
 
 	return listings, nil

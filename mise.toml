@@ -13,17 +13,17 @@ dir = "{{config_root}}/web"
 run = "pnpm dev"
 
 [tasks."dev:server"]
-env = { APP_ENV = "development" }
-run = "go run main.go"
+env = { APP_ENV = "development", OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318" }
+run = "go run main.go -otel-tracing"
 
 [tasks.dev]
-run = [{tasks = ["dev:web", "dev:server"]}]
+run = [{ tasks = ["dev:web", "dev:server"] }]
 
 [tasks.test]
 run = "go test -v ./..."
 
 [tasks."migrate:add"]
-usage ='''arg "<task_name>"'''
+usage = '''arg "<task_name>"'''
 run = "go tool goose -dir ./migrations create {{usage.task_name}} sql"
 
 [tasks."migrate:up"]
