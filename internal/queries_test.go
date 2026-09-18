@@ -212,6 +212,10 @@ func TestGetTopDomains(t *testing.T) {
 		t.Fatalf("expected 1 domains, got %d", len(domains))
 	}
 
+	if domains[0].Total != 1 {
+		t.Errorf("expected total to be 1, got %d", domains[0].Total)
+	}
+
 	if domains[0].Domain != "https://example.com" {
 		t.Errorf("expected first domain to be https://example.com, got %s", domains[0].Domain)
 	}

@@ -165,17 +165,20 @@ type DomainListing struct {
 	IsSvelteKit    bool    `db:"is_sk" json:"is_sk"`
 }
 
-const getTopDomains = `WITH top_domains AS (
-  SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count, s.signals, s.title, s.og_image, s.is_nsfw, s.screenshot_path, s.is_svelte, s.is_sk
-  FROM domains d
-  INNER JOIN scans s ON d.domain = s.domain
-  WHERE (s.is_sk = true OR s.is_svelte = true) AND (s.is_nsfw = 0 OR s.is_nsfw IS NULL)
-), counted_domains AS (
-  SELECT *, COUNT(*) OVER () AS total
-  FROM top_domains
-)
-SELECT domain, first_seen_at, last_seen_at, seen_count, signals, title, og_image, total, screenshot_path, is_svelte, is_sk
-FROM counted_domains
+const getTopDomains = `SELECT d.domain, d.first_seen_at, d.last_seen_at, d.seen_count,
+  s.signals, s.title, s.og_image,
+  (
+    SELECT COUNT(*)
+    FROM domains d2
+    INNER JOIN scans s2 ON d2.domain = s2.domain
+    WHERE (s2.is_sk = 1 OR s2.is_svelte = 1)
+      AND (s2.is_nsfw = 0 OR s2.is_nsfw IS NULL)
+  ) AS total,
+  s.screenshot_path, s.is_svelte, s.is_sk
+FROM domains d
+INNER JOIN scans s ON d.domain = s.domain
+WHERE (s.is_sk = 1 OR s.is_svelte = 1)
+  AND (s.is_nsfw = 0 OR s.is_nsfw IS NULL)
 ORDER BY %s
 LIMIT ? OFFSET ?`
 
@@ -190,14 +193,14 @@ func (s *AppStore) GetTopDomains(ctx context.Context, order string, limit, offse
 	)
 
 	ordering := map[string]string{
-		"seen_at":    "first_seen_at DESC",
-		"seen_count": "seen_count DESC",
+		"seen_at":    "d.first_seen_at DESC, d.domain ASC",
+		"seen_count": "d.seen_count DESC, d.domain ASC",
 	}
 
 	orderBy, ok := ordering[order]
 
 	if !ok {
-		orderBy = "first_seen_at DESC"
+		orderBy = "d.first_seen_at DESC, d.domain ASC"
 	}
 
 	query := fmt.Sprintf(getTopDomains, orderBy)
