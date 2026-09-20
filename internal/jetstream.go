@@ -20,7 +20,7 @@ import (
 )
 
 var rescanInterval = 30 * 24 * time.Hour
-var jetstreamUrl = "wss://jetstream2.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
+var jetstreamUrl = "wss://jetstream.us-west.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
 var nsfwRegex = regexp.MustCompile(`(?i)(porn|nsfw|xxx|hentai)`)
 var urlRegex = regexp.MustCompile("(?i)\\bhttps?://[^\\s<>\"'`)]+")
 
