@@ -12,11 +12,13 @@ type Config struct {
 	LogLevel            slog.Leveler
 	RunMigrations       bool
 	OTelTracing         bool
+	AppEnv              string
 }
 
 func LoadConfig() Config {
 
 	envLevel := os.Getenv("LOG_LEVEL")
+	appEnv := os.Getenv("APP_ENV")
 	runMigrationsEnv := strings.ToLower(os.Getenv("RUN_MIGRATIONS"))
 	logLevel := slog.LevelDebug
 
@@ -36,5 +38,6 @@ func LoadConfig() Config {
 		CloudflareAPIKey:    os.Getenv("CLOUDFLARE_API_KEY"),
 		LogLevel:            logLevel,
 		RunMigrations:       runMigrationsEnv == "true",
+		AppEnv:              appEnv,
 	}
 }

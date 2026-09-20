@@ -205,11 +205,13 @@ func main() {
 		logger.Error("exited with an error", "error", err)
 	}
 
-	err = runBackup(db, s3Client)
+	if cfg.AppEnv == "production" {
+		err = runBackup(db, s3Client)
 
-	if err != nil {
-		logger.Error("failed to backup database", "error", err)
-		os.Exit(1)
+		if err != nil {
+			logger.Error("failed to backup database", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	os.Exit(0)
