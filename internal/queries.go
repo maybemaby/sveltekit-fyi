@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,10 +25,21 @@ func errDeferLog(callback func() error, msg string) {
 
 type AppStore struct {
 	db *sql.DB
+
+	statsMu        sync.RWMutex
+	statsCache     CombinedStats
+	statsCached    bool
+	statsExpiresAt time.Time
+	statsTTL       time.Duration
+	now            func() time.Time
 }
 
 func NewAppStore(db *sql.DB) *AppStore {
-	return &AppStore{db: db}
+	return &AppStore{
+		db:       db,
+		statsTTL: 24 * time.Hour,
+		now:      time.Now,
+	}
 }
 
 const upsertDomainSeen = `
@@ -331,6 +344,24 @@ type CombinedStats struct {
 }
 
 func (s *AppStore) GetStats(ctx context.Context) (CombinedStats, error) {
+	now := s.now()
+
+	s.statsMu.RLock()
+	if s.statsCached && now.Before(s.statsExpiresAt) {
+		stats := s.statsCache
+		s.statsMu.RUnlock()
+		return stats, nil
+	}
+	s.statsMu.RUnlock()
+
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+
+	now = s.now()
+	if s.statsCached && now.Before(s.statsExpiresAt) {
+		return s.statsCache, nil
+	}
+
 	scanStats, err := s.getScanStats(ctx)
 
 	if err != nil {
@@ -343,10 +374,16 @@ func (s *AppStore) GetStats(ctx context.Context) (CombinedStats, error) {
 		return CombinedStats{}, err
 	}
 
-	return CombinedStats{
+	stats := CombinedStats{
 		Scans:   scanStats,
 		Signals: signalCounts,
-	}, nil
+	}
+
+	s.statsCache = stats
+	s.statsCached = true
+	s.statsExpiresAt = now.Add(s.statsTTL)
+
+	return stats, nil
 }
 
 type SiteCountSnapshot struct {
