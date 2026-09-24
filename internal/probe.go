@@ -2,7 +2,6 @@ package internal
 
 import (
 	"bufio"
-	"bytes"
 	"cmp"
 	"context"
 	"fmt"
@@ -13,13 +12,15 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
 var USER_AGENT = "Mozilla/5.0 (compatible; SvelteKit-FYI/1.0; +https://sveltekit.fyi)"
 var CHUNKS_LIMIT = 5
+
+const chunkDetectionLimit = 1024 * 1024 * 3
+
 var svelteWindowRegex = regexp.MustCompile(`(?i)window\.__svelte\s*\?\?=\s*{}`)
 var chunkScoring = []chunkScore{
 	{regex: regexp.MustCompile(`(?i)(main|index|entry|index)[.-][a-z0-9]+\.m?js`), score: 40},
@@ -139,7 +140,7 @@ func resolveParentDomain(host string) string {
 
 func DetectSvelte(src io.Reader) bool {
 	// Limit data read to 1.5MB to avoid reading too much data from large files
-	limitReader := io.LimitReader(src, 1024*1024*1.5)
+	limitReader := io.LimitReader(src, chunkDetectionLimit)
 	bufReader := bufio.NewReader(limitReader)
 	// Odds of a 22 byte string being split across two reads is low, 0.004% for 5 KB
 	buffer := make([]byte, 1024*5)
@@ -233,62 +234,33 @@ func ProbeEntryUrls(doc *goquery.Document, pageUrl *url.URL) []string {
 	return topEntries
 }
 
-func CollectChunks(ctx context.Context, c *http.Client, urls []string) [][]byte {
-	var chunks [][]byte
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, url := range urls {
-		wg.Go(func() {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-
-			if err != nil {
-				// Silently skip
-				return
-			}
-
-			req.Header.Set("user-agent", USER_AGENT)
-			req.Header.Set("accept", "application/javascript, text/javascript, */*; q=0.01")
-
-			resp, err := c.Do(req)
-
-			if err != nil {
-				// Silently skip
-				return
-			}
-
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				// Silently skip
-				return
-			}
-
-			chunk, err := io.ReadAll(resp.Body)
-
-			if err != nil {
-				// Silently skip
-				return
-			}
-
-			mu.Lock()
-			chunks = append(chunks, chunk)
-			mu.Unlock()
-		})
+func detectSvelteFromChunkURL(ctx context.Context, c *http.Client, chunkURL string) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, chunkURL, nil)
+	if err != nil {
+		return false
 	}
 
-	wg.Wait()
+	req.Header.Set("user-agent", USER_AGENT)
+	req.Header.Set("accept", "application/javascript, text/javascript, */*; q=0.01")
 
-	return chunks
+	resp, err := c.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+
+	return DetectSvelte(resp.Body)
 }
 
 func CheckSvelteForUrl(ctx context.Context, c *http.Client, doc *goquery.Document, pageUrl *url.URL) bool {
 	urls := ProbeEntryUrls(doc, pageUrl)
 
-	chunks := CollectChunks(ctx, c, urls)
-
-	for _, chunk := range chunks {
-		if DetectSvelte(bytes.NewReader(chunk)) {
+	for _, chunkURL := range urls {
+		if detectSvelteFromChunkURL(ctx, c, chunkURL) {
 			return true
 		}
 	}

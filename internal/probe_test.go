@@ -15,44 +15,69 @@ import (
 func TestCollectChunks(t *testing.T) {
 	t.Parallel()
 
-	chunks := map[string]string{
-		"/chunk1.js": "console.log('chunk1');",
-		"/chunk2.js": "console.log('chunk2');",
-		"/chunk3.js": "console.log('chunk3');",
-	}
-
+	chunkURL := "/chunk.js"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if content, ok := chunks[r.URL.Path]; ok {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(content))
+		if r.URL.Path != chunkURL {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("console.log('chunk1');"))
 	}))
 	defer server.Close()
 
-	var urls []string
-	for path := range chunks {
-		urls = append(urls, server.URL+path)
+	assert.False(t, detectSvelteFromChunkURL(context.Background(), http.DefaultClient, server.URL+chunkURL))
+}
+
+func TestDetectSvelteFromChunkURLCapsReadAtDetectionLimit(t *testing.T) {
+	t.Parallel()
+
+	const marker = `(window.__svelte ??= {}).uid ??= 1`
+	oversizedPrefix := strings.Repeat("a", chunkDetectionLimit+1024)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(oversizedPrefix))
+		w.Write([]byte(marker))
+	}))
+	defer server.Close()
+
+	assert.False(t, detectSvelteFromChunkURL(context.Background(), http.DefaultClient, server.URL))
+}
+
+func TestCheckSvelteForUrlStopsAfterPositiveChunk(t *testing.T) {
+	t.Parallel()
+
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusOK)
+
+		switch r.URL.Path {
+		case "/main.js":
+			w.Write([]byte(`(window.__svelte ??= {}).uid ??= 1`))
+		case "/later.js":
+			w.Write([]byte("console.log('should not be fetched');"))
+		default:
+			w.Write([]byte("console.log('default');"))
+		}
+	}))
+	defer server.Close()
+
+	html := `<html><head>
+		<script src="/main.js"></script>
+		<script src="/later.js"></script>
+	</head><body></body></html>`
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		t.Fatalf("failed to build document: %v", err)
 	}
 
-	collected := CollectChunks(context.Background(), http.DefaultClient, urls)
-
-	assert.Equal(t, len(collected), len(chunks))
-
-	// Verify all chunks are present
-	for path, content := range chunks {
-		found := false
-		for _, c := range collected {
-			if string(c) == content {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("chunk %s with content %s not found in collected chunks", path, content)
-		}
-	}
+	got := CheckSvelteForUrl(context.Background(), http.DefaultClient, doc, mustParseUrl(server.URL))
+	assert.True(t, got)
+	assert.Equal(t, 1, requestCount)
 }
 
 func TestSveltekitOk(t *testing.T) {
